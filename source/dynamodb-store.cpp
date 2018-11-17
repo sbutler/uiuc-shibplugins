@@ -74,6 +74,93 @@ namespace {
 
     StorageService* DynamoDBStorageServiceFactory(const DOMElement* const &, bool);
 
+    class DynamoDBStorageLogger : public Aws::Utils::Logging::LogSystemInterface {
+
+    public:
+        DynamoDBStorageLogger()
+            : m_cat(logging::Category::getInstance("xmltooling.StorageService.DynamoDB.aws_sdk"))
+        {}
+        ~DynamoDBStorageLogger() {}
+
+        Aws::Utils::Logging::LogLevel GetLogLevel() const {
+            return priorityToLogLevel(m_cat.getPriority());
+        }
+
+        void Log(
+            Aws::Utils::Logging::LogLevel logLevel,
+            const char* tag,
+            const char* formatStr,
+            ...
+        ) {
+            logging::Category& cat = getCategory(tag);
+
+            va_list vl;
+            va_start(vl,formatStr);
+
+            cat.logva(
+                logToPriorityLevel(logLevel),
+                formatStr,
+                vl
+            );
+
+            va_end(vl);
+        }
+
+        void LogStream(
+            Aws::Utils::Logging::LogLevel logLevel,
+            const char* tag,
+            const Aws::OStringStream &messageStream
+        ) {
+            logging::Category& cat = getCategory(tag);
+
+            cat.log(
+                logToPriorityLevel(logLevel),
+                messageStream.str()
+            );
+        }
+
+    private:
+        logging::Category &m_cat;
+
+        logging::Category& getCategory(const string& name = "") {
+            if (name.empty()) {
+                return m_cat;
+            } else {
+                return logging::Category::getInstance("xmltooling.StorageService.DynamoDB.aws_sdk." + name);
+            }
+        }
+
+        int logToPriorityLevel(Aws::Utils::Logging::LogLevel logLevel) const {
+            switch (logLevel) {
+                case Aws::Utils::Logging::LogLevel::Fatal:      return logging::Priority::PriorityLevel::FATAL;
+                case Aws::Utils::Logging::LogLevel::Error:      return logging::Priority::PriorityLevel::ERROR;
+                case Aws::Utils::Logging::LogLevel::Warn:       return logging::Priority::PriorityLevel::WARN;
+                case Aws::Utils::Logging::LogLevel::Info:       return logging::Priority::PriorityLevel::INFO;
+                case Aws::Utils::Logging::LogLevel::Debug:      return logging::Priority::PriorityLevel::DEBUG;
+                case Aws::Utils::Logging::LogLevel::Trace:      return logging::Priority::PriorityLevel::DEBUG;
+                case Aws::Utils::Logging::LogLevel::Off:        return logging::Priority::PriorityLevel::NOTSET;
+            }
+
+            return logging::Priority::PriorityLevel::INFO;
+        }
+
+        Aws::Utils::Logging::LogLevel priorityToLogLevel(int priorityLevel) const {
+            switch (priorityLevel) {
+                case logging::Priority::PriorityLevel::FATAL:   return Aws::Utils::Logging::LogLevel::Fatal;
+                case logging::Priority::PriorityLevel::ALERT:   return Aws::Utils::Logging::LogLevel::Fatal;
+                case logging::Priority::PriorityLevel::CRIT:    return Aws::Utils::Logging::LogLevel::Fatal;
+                case logging::Priority::PriorityLevel::ERROR:   return Aws::Utils::Logging::LogLevel::Error;
+                case logging::Priority::PriorityLevel::WARN:    return Aws::Utils::Logging::LogLevel::Warn;
+                case logging::Priority::PriorityLevel::NOTICE:  return Aws::Utils::Logging::LogLevel::Warn;
+                case logging::Priority::PriorityLevel::INFO:    return Aws::Utils::Logging::LogLevel::Info;
+                case logging::Priority::PriorityLevel::DEBUG:   return Aws::Utils::Logging::LogLevel::Debug;
+                case logging::Priority::PriorityLevel::NOTSET:  return Aws::Utils::Logging::LogLevel::Off;
+            }
+
+            return Aws::Utils::Logging::LogLevel::Info;
+        }
+    };
+
 
     class DynamoDBStorageService : public StorageService {
 
@@ -788,6 +875,11 @@ void DynamoDBStorageService::logRequest(const DynamoDBRequest &request) const
 extern "C" int DYNAMODB_EXPORTS xmltooling_extension_init(void*)
 {
     Aws::SDKOptions options;
+
+    options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
+    options.loggingOptions.logger_create_fn = []() {
+        return std::shared_ptr<Aws::Utils::Logging::LogSystemInterface>(new DynamoDBStorageLogger());
+    };
     Aws::InitAPI(options);
 
     // Register this SS type

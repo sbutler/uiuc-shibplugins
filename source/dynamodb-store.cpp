@@ -434,7 +434,7 @@ int DynamoDBStorageService::readString(
     }
 
     time_t itemExpires = getItemN<time_t>(context, key, item, EXPIRES);
-    if (itemExpires <= now) {
+    if (itemExpires && itemExpires <= now) {
         if (m_log.isDebugEnabled()) {
             m_log.debug("read string returned expired item (table=%s; context=%s; key=%s)",
                 m_tableName.c_str(),
@@ -448,14 +448,7 @@ int DynamoDBStorageService::readString(
     }
 
     int itemVersion = getItemN<int>(context, key, item, VERSION);
-    if (itemVersion == 0) {
-        m_log.error("read string returned item with invalid version (table=%s; context=%s; key=%s)",
-            m_tableName.c_str(),
-            context,
-            key
-        );
-        return 0;
-    } else if (itemVersion == version) {
+    if (version && itemVersion && itemVersion == version) {
         if (m_log.isDebugEnabled()) {
             m_log.debug("read string detected no version change (table=%s; context=%s; key=%s)",
                 m_tableName.c_str(),

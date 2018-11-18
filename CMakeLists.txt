@@ -15,7 +15,7 @@ build_aws_sdk_cpp()
 
 file(GLOB SHIB_DYNAMODB_STORE_SOURCE "source/*.cpp")
 
-find_package(Boost REQUIRED)
+find_package(Boost COMPONENTS program_options REQUIRED)
 find_package(XercesC REQUIRED)
 
 include(FindPkgConfig)
@@ -52,3 +52,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${XMLTOOLING_LIBRARIES_ABS}
     ${LOG4SHIB_LIBRARIES_ABS}
 )
+
+add_subdirectory("dynamodb-store-tool")

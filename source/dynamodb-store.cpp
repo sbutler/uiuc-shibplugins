@@ -531,7 +531,17 @@ int DynamoDBStorageService::updateString(
                 context,
                 key
             );
-            return 0;
+
+            // see why the condition expression failed. Version
+            // mismatch or value doesn't exist?
+            int currVersion = this->readString(
+                context,
+                key,
+                nullptr,
+                nullptr,
+                version
+            );
+            return currVersion == 0 ? 0 : -1;
         } else {
             m_log.error("update string failed (table=%s; context=%s; key=%s)",
                 m_tableName.c_str(),

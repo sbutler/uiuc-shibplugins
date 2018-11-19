@@ -16,7 +16,7 @@ using namespace std;
 namespace po = boost::program_options;
 
 string opt_arg0;
-bool opt_debug;
+bool opt_debug = false;
 string opt_library;
 string opt_plugin;
 string opt_config;
@@ -158,7 +158,7 @@ void handleCreate(std::shared_ptr<StorageService> store)
     string opt_context;
     string opt_key;
     string opt_value;
-    time_t opt_expiration;
+    time_t opt_expiration = 0;
 
     po::options_description desc(opt_command + " options");
     desc.add_options()
@@ -288,9 +288,9 @@ void handleRead(std::shared_ptr<StorageService> store)
         throw options_error(true);
     }
 
-    int version;
+    int version = 0;
     string value;
-    time_t expiration;
+    time_t expiration = 0;
 
     if (opt_command == "readString")
         version = store->readString(

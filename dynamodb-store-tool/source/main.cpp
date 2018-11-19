@@ -89,6 +89,24 @@ public:
     {}
 };
 
+class value_not_deleted_error : public base_value_error {
+
+public:
+    explicit value_not_deleted_error(
+        const string& context_arg,
+        const string& key_arg
+    )
+        : base_value_error(context_arg, key_arg, "value not created (context=%1%; key=%2%)")
+    {}
+
+    explicit value_not_deleted_error(
+        const char* context_arg,
+        const char* key_arg
+    )
+        : base_value_error(context_arg, key_arg, "value not created (context=%1%; key=%2%)")
+    {}
+};
+
 class value_not_found_error : public base_value_error {
 
 public:
@@ -188,6 +206,51 @@ void handleCreate(std::shared_ptr<StorageService> store)
 
     if (!success)
         throw value_not_created_error(opt_context, opt_key);
+}
+
+void handleDelete(std::shared_ptr<StorageService> store)
+{
+    string opt_context;
+    string opt_key;
+
+    po::options_description desc(opt_command + " options");
+    desc.add_options()
+        ("context", po::value<string>(&opt_context)->required(), "context name")
+        ("key", po::value<string>(&opt_key)->required(), "key name")
+    ;
+
+    po::positional_options_description pos;
+    pos.add("context", 1)
+        .add("key", 1);
+
+    po::variables_map vm;
+    po::command_line_parser parser = po::command_line_parser(opt_commandArgs)
+        .options(desc)
+        .positional(pos);
+    try {
+        po::store(parser.run(), vm);
+        po::notify(vm);
+    } catch (const std::exception &ex) {
+        cerr << "Exception parsing arguments: " << ex.what() << endl << endl;
+        outputHelp(opt_command + " [context] [key]", desc);
+
+        throw options_error(true);
+    }
+
+    bool success = false;
+    if (opt_command == "deleteString")
+        success = store->deleteString(
+            opt_context.c_str(),
+            opt_key.c_str()
+        );
+    else
+        success = store->deleteText(
+            opt_context.c_str(),
+            opt_key.c_str()
+        );
+
+    if (!success)
+        throw value_not_deleted_error(opt_context, opt_key);
 }
 
 void handleRead(std::shared_ptr<StorageService> store)
@@ -336,6 +399,10 @@ int main(int argc, char* argv[])
             handleRead(store);
         } else if (opt_command == "createString" || opt_command == "createText") {
             handleCreate(store);
+        } else if (opt_command == "deleteString" || opt_command == "deleteText") {
+            handleDelete(store);
+        } else {
+            throw runtime_error("unknown command: " + opt_command);
         }
     } catch (const options_error &optsEx) {
         if (!optsEx.isHelpDisplayed()) {

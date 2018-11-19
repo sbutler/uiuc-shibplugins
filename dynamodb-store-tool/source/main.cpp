@@ -400,6 +400,41 @@ void handleUpdate(std::shared_ptr<StorageService> store)
     cout << "Version: " << version << endl;
 }
 
+void handleUpdateContext(std::shared_ptr<StorageService> store)
+{
+    string opt_context;
+    time_t opt_expiration = 0;
+
+    po::options_description desc(opt_command + " options");
+    desc.add_options()
+        ("context", po::value<string>(&opt_context)->required(), "context name")
+        ("expiration", po::value<time_t>(&opt_expiration)->required(), "expiration time (UTC timestamp)")
+    ;
+
+    po::positional_options_description pos;
+    pos.add("context", 1)
+        .add("expiration", 1);
+
+    po::variables_map vm;
+    po::command_line_parser parser = po::command_line_parser(opt_commandArgs)
+        .options(desc)
+        .positional(pos);
+    try {
+        po::store(parser.run(), vm);
+        po::notify(vm);
+    } catch (const std::exception &ex) {
+        cerr << "Exception parsing arguments: " << ex.what() << endl << endl;
+        outputHelp(opt_command + " [context] [expiration]", desc);
+
+        throw options_error(true);
+    }
+
+    store->updateContext(
+        opt_context.c_str(),
+        opt_expiration
+    );
+}
+
 
 std::shared_ptr<StorageService> newStorageService(const string &configFileName, const string& pluginName = "DYNAMODB")
 {
@@ -483,6 +518,8 @@ int main(int argc, char* argv[])
             handleDelete(store);
         } else if (opt_command == "updateString" || opt_command == "updateText") {
             handleUpdate(store);
+        } else if (opt_command == "updateContext") {
+            handleUpdateContext(store);
         } else {
             throw runtime_error("unknown command: " + opt_command);
         }

@@ -507,8 +507,9 @@ int DynamoDBStorageService::updateString(
     }
 
     {
-        string updateExpr = "#VALUE = :value, #V = #V + 1";
+        string updateExpr = "SET #VALUE = :value, #V = #V + :one";
         request.AddExpressionAttributeValues(":value", AttributeValue(value));
+        request.AddExpressionAttributeValues(":one", AttributeValue().SetN("1"));
 
         if (expiration > 0) {
             updateExpr += ", #E = :expires";

@@ -52,5 +52,9 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${XMLTOOLING_LIBRARIES_ABS}
     ${LOG4SHIB_LIBRARIES_ABS}
 )
+install(TARGETS ${PROJECT_NAME}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+)
 
 add_subdirectory("dynamodb-store-tool")

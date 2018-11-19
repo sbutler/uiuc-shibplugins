@@ -16,3 +16,4 @@ target_link_libraries(${PROJECT_NAME}-tool PUBLIC
     ${XMLTOOLING_LIBRARIES_ABS}
     ${LOG4SHIB_LIBRARIES_ABS}
 )
+install(TARGETS ${PROJECT_NAME}-tool)

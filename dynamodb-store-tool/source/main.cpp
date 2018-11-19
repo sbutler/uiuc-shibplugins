@@ -283,7 +283,7 @@ void handleRead(std::shared_ptr<StorageService> store)
         po::notify(vm);
     } catch (const std::exception &ex) {
         cerr << "Exception parsing arguments: " << ex.what() << endl << endl;
-        outputHelp(opt_command + " [context] [key] [options]", desc);
+        outputHelp(opt_command + " [context] [key] [command options]", desc);
 
         throw options_error(true);
     }

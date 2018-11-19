@@ -631,7 +631,7 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
     qRequest.AddExpressionAttributeValues(":now", AttributeValue().SetN(lexical_cast<string>(now)));
 
     qRequest.SetKeyConditionExpression("#C = :context");
-    qRequest.SetFilterExpression("#E < :now");
+    qRequest.SetFilterExpression("attribute_not_exists(#E) OR #E > :now");
 
     qRequest.SetSelect(Select::SPECIFIC_ATTRIBUTES);
     qRequest.SetProjectionExpression("#K");
@@ -674,7 +674,9 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
             uRequest.AddExpressionAttributeValues(":expires", AttributeValue().SetN(lexical_cast<string>(expiration)));
 
             uRequest.SetConditionExpression("attribute_exists(#C) AND attribute_exists(#K)");
-            uRequest.SetUpdateExpression("#E = :expires");
+            uRequest.SetUpdateExpression("SET #E = :expires");
+
+            logRequest(uRequest);
 
             auto uOutcome = m_client->UpdateItem(uRequest);
             if (!uOutcome.IsSuccess()) {

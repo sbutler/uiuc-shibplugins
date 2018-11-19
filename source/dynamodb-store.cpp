@@ -496,7 +496,7 @@ int DynamoDBStorageService::updateString(
 
     {
         string conditionExpr = "attribute_exists(#C) AND attribute_exists(#K) AND #E > :now";
-        request.AddExpressionAttributeValues(":now", AttributeValue(lexical_cast<string>(now)));
+        request.AddExpressionAttributeValues(":now", AttributeValue().SetN(lexical_cast<string>(now)));
 
         if (version > 0) {
             conditionExpr += " AND #V = :ver";

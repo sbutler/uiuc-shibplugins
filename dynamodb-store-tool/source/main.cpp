@@ -271,6 +271,37 @@ void handleDelete(std::shared_ptr<StorageService> store)
         throw value_not_deleted_error(opt_context, opt_key);
 }
 
+void handleDeleteContext(std::shared_ptr<StorageService> store)
+{
+    string opt_context;
+
+    po::options_description desc(opt_command + " options");
+    desc.add_options()
+        ("context", po::value<string>(&opt_context)->required(), "context name")
+    ;
+
+    po::positional_options_description pos;
+    pos.add("context", 1);
+
+    po::variables_map vm;
+    po::command_line_parser parser = po::command_line_parser(opt_commandArgs)
+        .options(desc)
+        .positional(pos);
+    try {
+        po::store(parser.run(), vm);
+        po::notify(vm);
+    } catch (const std::exception &ex) {
+        cerr << "Exception parsing arguments: " << ex.what() << endl << endl;
+        outputHelp(opt_command + " [context]", desc);
+
+        throw options_error(true);
+    }
+
+    store->deleteContext(
+        opt_context.c_str()
+    );
+}
+
 void handleRead(std::shared_ptr<StorageService> store)
 {
     string opt_context;
@@ -520,6 +551,8 @@ int main(int argc, char* argv[])
             handleUpdate(store);
         } else if (opt_command == "updateContext") {
             handleUpdateContext(store);
+        } else if (opt_command == "deleteContext") {
+            handleDeleteContext(store);
         } else {
             throw runtime_error("unknown command: " + opt_command);
         }

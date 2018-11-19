@@ -79,11 +79,13 @@ namespace {
     public:
         DynamoDBStorageLogger()
             : m_cat(logging::Category::getInstance("xmltooling.StorageService.DynamoDB.aws_sdk"))
-        {}
+        {
+            m_priority = m_cat.getChainedPriority();
+        }
         ~DynamoDBStorageLogger() {}
 
         Aws::Utils::Logging::LogLevel GetLogLevel() const {
-            return priorityToLogLevel(m_cat.getPriority());
+            return priorityToLogLevel(m_priority);
         }
 
         void Log(
@@ -121,6 +123,7 @@ namespace {
 
     private:
         logging::Category &m_cat;
+        int m_priority;
 
         logging::Category& getCategory(const string& name = "") {
             if (name.empty()) {

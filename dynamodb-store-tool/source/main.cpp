@@ -125,6 +125,24 @@ public:
     {}
 };
 
+class value_not_updated_error : public base_value_error {
+
+public:
+    explicit value_not_updated_error(
+        const string& context_arg,
+        const string& key_arg
+    )
+        : base_value_error(context_arg, key_arg, "value not updated (context=%1%; key=%2%)")
+    {}
+
+    explicit value_not_updated_error(
+        const char* context_arg,
+        const char* key_arg
+    )
+        : base_value_error(context_arg, key_arg, "value not updated (context=%1%; key=%2%)")
+    {}
+};
+
 class options_error : public runtime_error {
 
 public:
@@ -320,6 +338,68 @@ void handleRead(std::shared_ptr<StorageService> store)
         cout << "Expiration: " << expiration << endl;
 }
 
+void handleUpdate(std::shared_ptr<StorageService> store)
+{
+    string opt_context;
+    string opt_key;
+    string opt_value;
+    time_t opt_expiration = 0;
+    int opt_version = 0;
+
+    po::options_description desc(opt_command + " options");
+    desc.add_options()
+        ("context", po::value<string>(&opt_context)->required(), "context name")
+        ("key", po::value<string>(&opt_key)->required(), "key name")
+        ("value", po::value<string>(&opt_value)->required(), "value")
+        ("expiration", po::value<time_t>(&opt_expiration), "expiration time (UTC timestamp); only updated if specified")
+        ("version", po::value<int>(&opt_version), "only update if the version number matches")
+    ;
+
+    po::positional_options_description pos;
+    pos.add("context", 1)
+        .add("key", 1)
+        .add("value", 1);
+
+    po::variables_map vm;
+    po::command_line_parser parser = po::command_line_parser(opt_commandArgs)
+        .options(desc)
+        .positional(pos);
+    try {
+        po::store(parser.run(), vm);
+        po::notify(vm);
+    } catch (const std::exception &ex) {
+        cerr << "Exception parsing arguments: " << ex.what() << endl << endl;
+        outputHelp(opt_command + " [context] [key] [value] [command options]", desc);
+
+        throw options_error(true);
+    }
+
+    int version = 0;
+    if (opt_command == "updateString")
+        version = store->updateString(
+            opt_context.c_str(),
+            opt_key.c_str(),
+            opt_value.c_str(),
+            opt_expiration,
+            opt_version
+        );
+    else
+        version = store->updateText(
+            opt_context.c_str(),
+            opt_key.c_str(),
+            opt_value.c_str(),
+            opt_expiration,
+            opt_version
+        );
+
+    if (version == 0)
+        throw value_not_found_error(opt_context, opt_key);
+    else if (version == -1)
+        throw value_not_updated_error(opt_context, opt_key);
+
+    cout << "Version: " << version << endl;
+}
+
 
 std::shared_ptr<StorageService> newStorageService(const string &configFileName, const string& pluginName = "DYNAMODB")
 {
@@ -401,6 +481,8 @@ int main(int argc, char* argv[])
             handleCreate(store);
         } else if (opt_command == "deleteString" || opt_command == "deleteText") {
             handleDelete(store);
+        } else if (opt_command == "updateString" || opt_command == "updateText") {
+            handleUpdate(store);
         } else {
             throw runtime_error("unknown command: " + opt_command);
         }

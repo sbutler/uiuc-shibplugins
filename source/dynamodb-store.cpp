@@ -168,6 +168,8 @@ namespace {
     class DynamoDBStorageService : public StorageService {
 
     public:
+        typedef Aws::Map<Aws::String, AttributeValue> Item;
+
         ~DynamoDBStorageService() {}
 
         const Capabilities& getCapabilities() const {
@@ -242,8 +244,8 @@ namespace {
         DynamoDBStorageService(const DOMElement* e);
 
         template <typename T>
-        T getItemN(const char* context, const char* key, const Aws::Map<Aws::String, AttributeValue> &item, const string &itemKey) const;
-        const string getItemS(const char* context, const char* key, const Aws::Map<Aws::String, AttributeValue> &item, const string &itemKey) const;
+        T getItemN(const char* context, const char* key, const Item &item, const string &itemKey) const;
+        const string getItemS(const char* context, const char* key, const Item &item, const string &itemKey) const;
 
         void logError(const Aws::Client::AWSError<DynamoDBErrors> &error) const;
         void logRequest(const DynamoDBRequest &request) const;
@@ -424,7 +426,7 @@ int DynamoDBStorageService::readString(
         throw IOException("DynamoDB Storage read string failed.");
     }
 
-    const auto &item = outcome.GetResult().GetItem();
+    const Item &item = outcome.GetResult().GetItem();
     if (item.size() == 0) {
         if (m_log.isDebugEnabled()) {
             m_log.debug("read string returned no data (table=%s; context=%s; key=%s)",
@@ -553,7 +555,7 @@ int DynamoDBStorageService::updateString(
         }
     }
 
-    const auto &attrs = outcome.GetResult().GetAttributes();
+    const Item &attrs = outcome.GetResult().GetAttributes();
     if (attrs.size() == 0) {
         if (m_log.isDebugEnabled()) {
             m_log.debug("update string returned no data (table=%s; context=%s; key=%s)",
@@ -651,8 +653,8 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
 
         const auto &qResult = qOutcome.GetResult();
 
-        for (const auto &item : qResult.GetItems()) {
-            Aws::Map<Aws::String, AttributeValue>::const_iterator it = item.find(KEY);
+        for (const Item &item : qResult.GetItems()) {
+            Item::const_iterator it = item.find(KEY);
             if (it == item.cend()) {
                 m_log.warn("update context got item without a key value (table=%s; context=%s)",
                     m_tableName.c_str(),
@@ -740,8 +742,8 @@ void DynamoDBStorageService::deleteContext(const char* context)
 
         const auto &qResult = qOutcome.GetResult();
 
-        for (const auto &item : qResult.GetItems()) {
-            Aws::Map<Aws::String, AttributeValue>::const_iterator it = item.find(KEY);
+        for (const Item &item : qResult.GetItems()) {
+            Item::const_iterator it = item.find(KEY);
             if (it == item.cend()) {
                 m_log.warn("update context got item without a key value (table=%s; context=%s)",
                     m_tableName.c_str(),
@@ -791,11 +793,11 @@ template <typename T>
 T DynamoDBStorageService::getItemN(
     const char* context,
     const char* key,
-    const Aws::Map<Aws::String, AttributeValue> &item,
+    const Item &item,
     const string &itemKey
 ) const
 {
-    Aws::Map<Aws::String, AttributeValue>::const_iterator it = item.find(itemKey);
+    Item::const_iterator it = item.find(itemKey);
     if (it == item.cend()) {
         m_log.warn("item has no %s (table=%s; context=%s; key=%s)",
             itemKey.c_str(),
@@ -834,11 +836,11 @@ T DynamoDBStorageService::getItemN(
 const string DynamoDBStorageService::getItemS(
     const char* context,
     const char* key,
-    const Aws::Map<Aws::String, AttributeValue> &item,
+    const Item &item,
     const string &itemKey
 ) const
 {
-    Aws::Map<Aws::String, AttributeValue>::const_iterator it = item.find(itemKey);
+    Item::const_iterator it = item.find(itemKey);
     if (it == item.cend()) {
         m_log.warn("item has no %s (table=%s; context=%s; key=%s)",
             itemKey.c_str(),

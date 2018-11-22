@@ -359,7 +359,7 @@ bool DynamoDBStorageService::createString(
 
     logRequest(request);
 
-    auto outcome = m_client->PutItem(request);
+    PutItemOutcome outcome = m_client->PutItem(request);
     if (!outcome.IsSuccess()) {
         const auto &error = outcome.GetError();
 
@@ -415,7 +415,7 @@ int DynamoDBStorageService::readString(
 
     logRequest(request);
 
-    auto outcome = m_client->GetItem(request);
+    GetItemOutcome outcome = m_client->GetItem(request);
     if (!outcome.IsSuccess()) {
         m_log.error("read string failed for (table=%s; context=%s; key=%s)",
             m_tableName.c_str(),
@@ -523,7 +523,7 @@ int DynamoDBStorageService::updateString(
 
     logRequest(request);
 
-    auto outcome = m_client->UpdateItem(request);
+    UpdateItemOutcome outcome = m_client->UpdateItem(request);
     if (!outcome.IsSuccess()) {
         const auto &error = outcome.GetError();
 
@@ -598,7 +598,7 @@ bool DynamoDBStorageService::deleteString(
 
     logRequest(request);
 
-    auto outcome = m_client->DeleteItem(request);
+    DeleteItemOutcome outcome = m_client->DeleteItem(request);
     if (!outcome.IsSuccess()) {
         m_log.error("delete string failed (table=%s; context=%s; key=%s)",
             m_tableName.c_str(),
@@ -641,7 +641,7 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
     do {
         logRequest(qRequest);
 
-        auto qOutcome = m_client->Query(qRequest);
+        QueryOutcome qOutcome = m_client->Query(qRequest);
         if (!qOutcome.IsSuccess()) {
             m_log.error("update context failed (table=%s; context=%s)",
                 m_tableName.c_str(),
@@ -651,7 +651,7 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
             throw IOException("DynamoDB Storage update context failed.");
         }
 
-        const auto &qResult = qOutcome.GetResult();
+        const QueryResult &qResult = qOutcome.GetResult();
 
         for (const Item &item : qResult.GetItems()) {
             Item::const_iterator it = item.find(KEY);
@@ -680,7 +680,7 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
 
             logRequest(uRequest);
 
-            auto uOutcome = m_client->UpdateItem(uRequest);
+            UpdateItemOutcome uOutcome = m_client->UpdateItem(uRequest);
             if (!uOutcome.IsSuccess()) {
                 const auto &error = uOutcome.GetError();
 
@@ -730,7 +730,7 @@ void DynamoDBStorageService::deleteContext(const char* context)
     do {
         logRequest(qRequest);
 
-        auto qOutcome = m_client->Query(qRequest);
+        QueryOutcome qOutcome = m_client->Query(qRequest);
         if (!qOutcome.IsSuccess()) {
             m_log.error("delete context failed (table=%s; context=%s)",
                 m_tableName.c_str(),
@@ -740,7 +740,7 @@ void DynamoDBStorageService::deleteContext(const char* context)
             throw IOException("DynamoDB Storage delete context failed.");
         }
 
-        const auto &qResult = qOutcome.GetResult();
+        const QueryResult &qResult = qOutcome.GetResult();
 
         for (const Item &item : qResult.GetItems()) {
             Item::const_iterator it = item.find(KEY);
@@ -773,7 +773,7 @@ void DynamoDBStorageService::deleteContext(const char* context)
 
         logRequest(bwRequest);
 
-        const auto &bwOutcome = m_client->BatchWriteItem(bwRequest);
+        BatchWriteItemOutcome bwOutcome = m_client->BatchWriteItem(bwRequest);
         if (!bwOutcome.IsSuccess()) {
             m_log.error("delete context batch write failed (table=%s; context=%s)",
                 m_tableName.c_str(),
@@ -783,7 +783,7 @@ void DynamoDBStorageService::deleteContext(const char* context)
             throw IOException("DynamoDB Storage delete context failed.");
         }
 
-        const auto &bwResult = bwOutcome.GetResult();
+        const BatchWriteItemResult &bwResult = bwOutcome.GetResult();
         bwRequestItems = bwResult.GetUnprocessedItems();
     }
 }

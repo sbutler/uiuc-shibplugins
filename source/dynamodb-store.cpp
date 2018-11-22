@@ -240,7 +240,7 @@ namespace {
         void updateContext(const char* context, time_t expiration);
         void deleteContext(const char* context);
 
-        void _forEachContextKeys(
+        void forEachContextKey(
             const char* context,
             function<bool (const AttributeValue&)> callback
         );
@@ -624,7 +624,7 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
     NDC ndc("updateContext")
     #endif
 
-    _forEachContextKeys(
+    forEachContextKey(
         context,
         [=](const AttributeValue& key) -> bool {
             UpdateItemRequest request;
@@ -677,7 +677,7 @@ void DynamoDBStorageService::deleteContext(const char* context)
     #endif
 
     list<WriteRequest> writeRequests;
-    _forEachContextKeys(
+    forEachContextKey(
         context,
         [=,&writeRequests](const AttributeValue& key) -> bool {
             writeRequests.push_back(WriteRequest().WithDeleteRequest(
@@ -717,7 +717,7 @@ void DynamoDBStorageService::deleteContext(const char* context)
 }
 
 
-void DynamoDBStorageService::_forEachContextKeys(
+void DynamoDBStorageService::forEachContextKey(
     const char* context,
     function<bool (const AttributeValue&)> callback
 )
@@ -745,7 +745,7 @@ void DynamoDBStorageService::_forEachContextKeys(
     request.SetSelect(Select::SPECIFIC_ATTRIBUTES);
     request.SetProjectionExpression("#K");
 
-    bool stopList = false;
+    bool stopLoop = false;
     do {
         logRequest(request);
 
@@ -771,14 +771,14 @@ void DynamoDBStorageService::_forEachContextKeys(
                 continue;
             }
 
-            stopList = callback(it->second);
-            if (stopList) {
+            stopLoop = callback(it->second);
+            if (stopLoop) {
                 break;
             }
         }
 
         request.SetExclusiveStartKey(result.GetLastEvaluatedKey());
-    } while (!stopList && request.GetExclusiveStartKey().size() != 0);
+    } while (!stopLoop && request.GetExclusiveStartKey().size() != 0);
 }
 
 

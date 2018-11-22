@@ -240,6 +240,11 @@ namespace {
         void updateContext(const char* context, time_t expiration);
         void deleteContext(const char* context);
 
+        void _forEachContextKeys(
+            const char* context,
+            function<bool (const AttributeValue&)> callback
+        );
+
     private:
         DynamoDBStorageService(const DOMElement* e);
 
@@ -619,90 +624,49 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
     NDC ndc("updateContext")
     #endif
 
-    time_t now = time(nullptr);
+    _forEachContextKeys(
+        context,
+        [=](const AttributeValue& key) -> bool {
+            UpdateItemRequest request;
+            request.SetTableName(m_tableName);
 
-    QueryRequest qRequest;
-    qRequest.SetTableName(m_tableName);
-    qRequest.SetConsistentRead(true);
+            request.AddKey(CONTEXT, AttributeValue(context));
+            request.AddKey(KEY, key);
 
-    qRequest.AddExpressionAttributeNames("#C", CONTEXT);
-    qRequest.AddExpressionAttributeNames("#K", KEY);
-    qRequest.AddExpressionAttributeNames("#E", EXPIRES);
+            request.AddExpressionAttributeNames("#C", CONTEXT);
+            request.AddExpressionAttributeNames("#K", KEY);
+            request.AddExpressionAttributeNames("#E", EXPIRES);
 
-    qRequest.AddExpressionAttributeValues(":context", AttributeValue(context));
-    qRequest.AddExpressionAttributeValues(":now", AttributeValue().SetN(lexical_cast<string>(now)));
+            request.AddExpressionAttributeValues(":expires", AttributeValue().SetN(lexical_cast<string>(expiration)));
 
-    qRequest.SetKeyConditionExpression("#C = :context");
-    qRequest.SetFilterExpression("attribute_not_exists(#E) OR #E > :now");
+            request.SetConditionExpression("attribute_exists(#C) AND attribute_exists(#K)");
+            request.SetUpdateExpression("SET #E = :expires");
 
-    qRequest.SetSelect(Select::SPECIFIC_ATTRIBUTES);
-    qRequest.SetProjectionExpression("#K");
+            logRequest(request);
 
-    do {
-        logRequest(qRequest);
-
-        QueryOutcome qOutcome = m_client->Query(qRequest);
-        if (!qOutcome.IsSuccess()) {
-            m_log.error("update context failed (table=%s; context=%s)",
-                m_tableName.c_str(),
-                context
-            );
-            logError(qOutcome.GetError());
-            throw IOException("DynamoDB Storage update context failed.");
-        }
-
-        const QueryResult &qResult = qOutcome.GetResult();
-
-        for (const Item &item : qResult.GetItems()) {
-            Item::const_iterator it = item.find(KEY);
-            if (it == item.cend()) {
-                m_log.warn("update context got item without a key value (table=%s; context=%s)",
-                    m_tableName.c_str(),
-                    context
-                );
-                continue;
-            }
-
-            UpdateItemRequest uRequest;
-            uRequest.SetTableName(m_tableName);
-
-            uRequest.AddKey(CONTEXT, AttributeValue(context));
-            uRequest.AddKey(KEY, it->second);
-
-            uRequest.AddExpressionAttributeNames("#C", CONTEXT);
-            uRequest.AddExpressionAttributeNames("#K", KEY);
-            uRequest.AddExpressionAttributeNames("#E", EXPIRES);
-
-            uRequest.AddExpressionAttributeValues(":expires", AttributeValue().SetN(lexical_cast<string>(expiration)));
-
-            uRequest.SetConditionExpression("attribute_exists(#C) AND attribute_exists(#K)");
-            uRequest.SetUpdateExpression("SET #E = :expires");
-
-            logRequest(uRequest);
-
-            UpdateItemOutcome uOutcome = m_client->UpdateItem(uRequest);
-            if (!uOutcome.IsSuccess()) {
-                const auto &error = uOutcome.GetError();
+            UpdateItemOutcome outcome = m_client->UpdateItem(request);
+            if (!outcome.IsSuccess()) {
+                const auto &error = outcome.GetError();
 
                 if (error.GetErrorType() == DynamoDBErrors::CONDITIONAL_CHECK_FAILED) {
                     m_log.info("update context failed with condition check failure (table=%s; context=%s; key=%s)",
                         m_tableName.c_str(),
                         context,
-                        it->second.GetS().c_str()
+                        key.GetS().c_str()
                     );
                 } else {
                     m_log.error("update context failed (table=%s; context=%s; key=%s)",
                         m_tableName.c_str(),
                         context,
-                        it->second.GetS().c_str()
+                        key.GetS().c_str()
                     );
-                    logError(uOutcome.GetError());
+                    logError(outcome.GetError());
                 }
             }
-        }
 
-        qRequest.SetExclusiveStartKey(qResult.GetLastEvaluatedKey());
-    } while (qRequest.GetExclusiveStartKey().size() != 0);
+            return false;
+        }
+    );
 }
 
 
@@ -712,53 +676,17 @@ void DynamoDBStorageService::deleteContext(const char* context)
     NDC ndc("deleteContext")
     #endif
 
-    QueryRequest qRequest;
-    qRequest.SetTableName(m_tableName);
-    qRequest.SetConsistentRead(true);
-
-    qRequest.AddExpressionAttributeNames("#C", CONTEXT);
-    qRequest.AddExpressionAttributeNames("#K", KEY);
-
-    qRequest.AddExpressionAttributeValues(":context", AttributeValue(context));
-
-    qRequest.SetKeyConditionExpression("#C = :context");
-
-    qRequest.SetSelect(Select::SPECIFIC_ATTRIBUTES);
-    qRequest.SetProjectionExpression("#K");
-
     list<WriteRequest> writeRequests;
-    do {
-        logRequest(qRequest);
-
-        QueryOutcome qOutcome = m_client->Query(qRequest);
-        if (!qOutcome.IsSuccess()) {
-            m_log.error("delete context failed (table=%s; context=%s)",
-                m_tableName.c_str(),
-                context
-            );
-            logError(qOutcome.GetError());
-            throw IOException("DynamoDB Storage delete context failed.");
-        }
-
-        const QueryResult &qResult = qOutcome.GetResult();
-
-        for (const Item &item : qResult.GetItems()) {
-            Item::const_iterator it = item.find(KEY);
-            if (it == item.cend()) {
-                m_log.warn("update context got item without a key value (table=%s; context=%s)",
-                    m_tableName.c_str(),
-                    context
-                );
-                continue;
-            }
-
+    _forEachContextKeys(
+        context,
+        [=,&writeRequests](const AttributeValue& key) -> bool {
             writeRequests.push_back(WriteRequest().WithDeleteRequest(
-                DeleteRequest().AddKey(CONTEXT, AttributeValue(context)).AddKey(KEY, it->second)
+                DeleteRequest().AddKey(CONTEXT, AttributeValue(context)).AddKey(KEY, key)
             ));
-        }
 
-        qRequest.SetExclusiveStartKey(qResult.GetLastEvaluatedKey());
-    } while (qRequest.GetExclusiveStartKey().size() != 0);
+            return false;
+        }
+    );
 
     Aws::Map<Aws::String, Aws::Vector<WriteRequest>> bwRequestItems;
     auto writeRequestsIt = writeRequests.cbegin();
@@ -786,6 +714,71 @@ void DynamoDBStorageService::deleteContext(const char* context)
         const BatchWriteItemResult &bwResult = bwOutcome.GetResult();
         bwRequestItems = bwResult.GetUnprocessedItems();
     }
+}
+
+
+void DynamoDBStorageService::_forEachContextKeys(
+    const char* context,
+    function<bool (const AttributeValue&)> callback
+)
+{
+    #ifdef _DEBUG
+    NDC ndc("_listContextKeys")
+    #endif
+
+    time_t now = time(nullptr);
+
+    QueryRequest request;
+    request.SetTableName(m_tableName);
+    request.SetConsistentRead(true);
+
+    request.AddExpressionAttributeNames("#C", CONTEXT);
+    request.AddExpressionAttributeNames("#K", KEY);
+    request.AddExpressionAttributeNames("#E", EXPIRES);
+
+    request.AddExpressionAttributeValues(":context", AttributeValue(context));
+    request.AddExpressionAttributeValues(":now", AttributeValue().SetN(lexical_cast<string>(now)));
+
+    request.SetKeyConditionExpression("#C = :context");
+    request.SetFilterExpression("attribute_not_exists(#E) OR #E > :now");
+
+    request.SetSelect(Select::SPECIFIC_ATTRIBUTES);
+    request.SetProjectionExpression("#K");
+
+    bool stopList = false;
+    do {
+        logRequest(request);
+
+        QueryOutcome outcome = m_client->Query(request);
+        if (!outcome.IsSuccess()) {
+            m_log.error("list context keys failed (table=%s; context=%s)",
+                m_tableName.c_str(),
+                context
+            );
+            logError(outcome.GetError());
+            throw IOException("DynamoDB Storage list context keys failed.");
+        }
+
+        const QueryResult &result = outcome.GetResult();
+
+        for (const Item &item : result.GetItems()) {
+            Item::const_iterator it = item.find(KEY);
+            if (it == item.cend()) {
+                m_log.warn("list context keys got item without a key value (table=%s; context=%s)",
+                    m_tableName.c_str(),
+                    context
+                );
+                continue;
+            }
+
+            stopList = callback(it->second);
+            if (stopList) {
+                break;
+            }
+        }
+
+        request.SetExclusiveStartKey(result.GetLastEvaluatedKey());
+    } while (!stopList && request.GetExclusiveStartKey().size() != 0);
 }
 
 

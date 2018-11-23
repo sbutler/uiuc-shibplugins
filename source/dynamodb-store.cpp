@@ -32,28 +32,15 @@
 
 using namespace xmltooling;
 using namespace xercesc;
-using namespace boost;
 using namespace std;
+
+using boost::lexical_cast;
+using boost::bad_lexical_cast;
 
 using namespace Aws::DynamoDB;
 using namespace Aws::DynamoDB::Model;
 
 namespace {
-    static const XMLCh x_ACCESS_KEY_ID[] = UNICODE_LITERAL_11(a,c,c,e,s,s,K,e,y,I,D);
-    static const XMLCh x_BATCH_SIZE[] = UNICODE_LITERAL_9(b,a,t,c,h,S,i,z,e);
-    static const XMLCh x_CA_FILE[] = UNICODE_LITERAL_6(c,a,F,i,l,e);
-    static const XMLCh x_CA_PATH[] = UNICODE_LITERAL_6(c,a,P,a,t,h);
-    static const XMLCh x_CONNECT_TIMEOUT_MS[] = UNICODE_LITERAL_16(c,o,n,n,e,c,t,T,i,m,e,o,u,t,M,S);
-    static const XMLCh x_CREDENTIALS[] = UNICODE_LITERAL_11(C,r,e,d,e,n,t,i,a,l,s);
-    static const XMLCh x_ENDPOINT[] = UNICODE_LITERAL_8(e,n,d,p,o,i,n,t);
-    static const XMLCh x_MAX_CONNECTIONS[] = UNICODE_LITERAL_14(m,a,x,C,o,n,n,e,c,t,i,o,n,s);
-    static const XMLCh x_REGION[] = UNICODE_LITERAL_6(r,e,g,i,o,n);
-    static const XMLCh x_REQUEST_TIMEOUT_MS[] = UNICODE_LITERAL_16(r,e,q,u,e,s,t,T,i,m,e,o,u,t,M,S);
-    static const XMLCh x_SECRET_KEY[] = UNICODE_LITERAL_9(s,e,c,r,e,t,K,e,y);
-    static const XMLCh x_SESSION_TOKEN[] = UNICODE_LITERAL_12(s,e,s,s,i,o,n,T,o,k,e,n);
-    static const XMLCh x_TABLE_NAME[] = UNICODE_LITERAL_9(t,a,b,l,e,N,a,m,e);
-    static const XMLCh x_VERIFY_SSL[] = UNICODE_LITERAL_9(v,e,r,i,f,y,S,S,L);
-
     static const char* ALLOCATION_TAG = "ShibDynamoDBStore";
     static const string CONTEXT( "Context" );
     static const string EXPIRES( "Expires" );
@@ -259,7 +246,7 @@ namespace {
         Capabilities m_caps;
         std::shared_ptr<DynamoDBClient> m_client;
         logging::Category& m_log;
-        const string m_tableName;
+        string m_tableName;
 
         friend StorageService* DynamoDBStorageServiceFactory(const DOMElement* const &, bool);
     };
@@ -281,13 +268,29 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
             - (EXPIRES.length() + 10)
             - (VERSION.length() + 10)
             - VALUE.length()
-      ),
-      m_tableName(XMLHelper::getAttrString(eRoot, DEFAULT_TABLE_NAME, x_TABLE_NAME)),
-      m_batchSize(XMLHelper::getAttrInt(eRoot, DEFAULT_BATCH_SIZE, x_BATCH_SIZE))
+      )
 {
+    static const XMLCh x_ACCESS_KEY_ID[] = UNICODE_LITERAL_11(a,c,c,e,s,s,K,e,y,I,D);
+    static const XMLCh x_BATCH_SIZE[] = UNICODE_LITERAL_9(b,a,t,c,h,S,i,z,e);
+    static const XMLCh x_CA_FILE[] = UNICODE_LITERAL_6(c,a,F,i,l,e);
+    static const XMLCh x_CA_PATH[] = UNICODE_LITERAL_6(c,a,P,a,t,h);
+    static const XMLCh x_CONNECT_TIMEOUT_MS[] = UNICODE_LITERAL_16(c,o,n,n,e,c,t,T,i,m,e,o,u,t,M,S);
+    static const XMLCh x_CREDENTIALS[] = UNICODE_LITERAL_11(C,r,e,d,e,n,t,i,a,l,s);
+    static const XMLCh x_ENDPOINT[] = UNICODE_LITERAL_8(e,n,d,p,o,i,n,t);
+    static const XMLCh x_MAX_CONNECTIONS[] = UNICODE_LITERAL_14(m,a,x,C,o,n,n,e,c,t,i,o,n,s);
+    static const XMLCh x_REGION[] = UNICODE_LITERAL_6(r,e,g,i,o,n);
+    static const XMLCh x_REQUEST_TIMEOUT_MS[] = UNICODE_LITERAL_16(r,e,q,u,e,s,t,T,i,m,e,o,u,t,M,S);
+    static const XMLCh x_SECRET_KEY[] = UNICODE_LITERAL_9(s,e,c,r,e,t,K,e,y);
+    static const XMLCh x_SESSION_TOKEN[] = UNICODE_LITERAL_12(s,e,s,s,i,o,n,T,o,k,e,n);
+    static const XMLCh x_TABLE_NAME[] = UNICODE_LITERAL_9(t,a,b,l,e,N,a,m,e);
+    static const XMLCh x_VERIFY_SSL[] = UNICODE_LITERAL_9(v,e,r,i,f,y,S,S,L);
+
     #ifdef _DEBUG
     NDC ndc("DynamoDBStorageService")
     #endif
+
+    m_tableName = XMLHelper::getAttrString(eRoot, DEFAULT_TABLE_NAME, x_TABLE_NAME);
+    m_batchSize = XMLHelper::getAttrInt(eRoot, DEFAULT_BATCH_SIZE, x_BATCH_SIZE);
 
     Aws::Client::ClientConfiguration clientConfig;
     {

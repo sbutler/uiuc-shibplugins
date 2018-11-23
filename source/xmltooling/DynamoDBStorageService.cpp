@@ -496,31 +496,31 @@ void DynamoDBStorageService::deleteContext(const char* context)
         }
     );
 
-    Aws::Map<Aws::String, Aws::Vector<WriteRequest>> bwRequestItems;
-    auto writeRequestsIt = writeRequests.cbegin();
-    while (writeRequestsIt != writeRequests.cend()) {
-        auto &bwRequestItemValue = bwRequestItems[m_tableName];
-        for (; bwRequestItemValue.size() < m_batchSize && writeRequestsIt != writeRequests.cend(); ++writeRequestsIt) {
-            bwRequestItemValue.push_back(*writeRequestsIt);
+    Aws::Map<Aws::String, Aws::Vector<WriteRequest>> requestItems;
+    auto it = writeRequests.cbegin();
+    while (it != writeRequests.cend()) {
+        auto &items = requestItems[m_tableName];
+        for (; items.size() < m_batchSize && it != writeRequests.cend(); ++it) {
+            items.push_back(*it);
         }
 
-        BatchWriteItemRequest bwRequest;
-        bwRequest.SetRequestItems(bwRequestItems);
+        BatchWriteItemRequest request;
+        request.SetRequestItems(requestItems);
 
-        logRequest(bwRequest);
+        logRequest(request);
 
-        BatchWriteItemOutcome bwOutcome = m_client->BatchWriteItem(bwRequest);
-        if (!bwOutcome.IsSuccess()) {
+        BatchWriteItemOutcome outcome = m_client->BatchWriteItem(request);
+        if (!outcome.IsSuccess()) {
             m_log.error("delete context batch write failed (table=%s; context=%s)",
                 m_tableName.c_str(),
                 context
             );
-            logError(bwOutcome.GetError());
+            logError(outcome.GetError());
             throw IOException("DynamoDB Storage delete context failed.");
         }
 
-        const BatchWriteItemResult &bwResult = bwOutcome.GetResult();
-        bwRequestItems = bwResult.GetUnprocessedItems();
+        const BatchWriteItemResult &result = outcome.GetResult();
+        requestItems = result.GetUnprocessedItems();
     }
 }
 

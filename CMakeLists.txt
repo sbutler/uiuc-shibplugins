@@ -21,7 +21,14 @@ set(AWS_SDK_CPP_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/external-install/include
 set(AWS_SDK_CPP_STATICLIBRARY_core ${CMAKE_CURRENT_BINARY_DIR}/external-install/lib/libaws-cpp-sdk-core.a)
 set(AWS_SDK_CPP_STATICLIBRARY_dynamodb ${CMAKE_CURRENT_BINARY_DIR}/external-install/lib/libaws-cpp-sdk-dynamodb.a)
 
-file(GLOB SHIB_DYNAMODB_STORE_SOURCE "source/*.cpp")
+file(GLOB SHIB_DYNAMODB_STORE_SOURCE
+    "source/aws_sdk/core/utils/logging/*.cpp"
+    "source/xmltooling/*.cpp"
+)
+file(GLOB SHIB_DYNAMODB_STORE_HEADERS
+    "include/uiuc/aws_sdk/core/utils/logging/*.h"
+    "include/uiuc/xmltooling/*.h"
+)
 
 find_package(Boost COMPONENTS program_options REQUIRED)
 find_package(CURL REQUIRED)
@@ -47,6 +54,7 @@ endforeach()
 add_library(${PROJECT_NAME} SHARED ${SHIB_DYNAMODB_STORE_SOURCE})
 add_dependencies(${PROJECT_NAME} AWS_SDK_CPP)
 target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     ${AWS_SDK_CPP_INCLUDE_DIR}
     ${Boost_INCLUDE_DIR}
     ${XercesC_INCLUDE_DIR}

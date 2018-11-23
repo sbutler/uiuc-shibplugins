@@ -4,30 +4,23 @@
 # define DYNAMODB_EXPORTS
 #endif
 
-#include <boost/lexical_cast.hpp>
+#include <uiuc/aws_sdk/core/utils/logging/XMLToolingLogSystem.h>
+#include <uiuc/xmltooling/DynamoDBStorageService.h>
 
-#include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/client/ClientConfiguration.h>
 #include <aws/core/utils/Outcome.h>
-#include <aws/dynamodb/DynamoDBClient.h>
 #include <aws/dynamodb/model/BatchWriteItemRequest.h>
 #include <aws/dynamodb/model/DeleteItemRequest.h>
 #include <aws/dynamodb/model/GetItemRequest.h>
 #include <aws/dynamodb/model/PutItemRequest.h>
 #include <aws/dynamodb/model/QueryRequest.h>
 #include <aws/dynamodb/model/UpdateItemRequest.h>
-
-#include <xmltooling/base.h>
-
+#include <boost/lexical_cast.hpp>
 #include <xercesc/util/XMLUniDefs.hpp>
-
-#include <xmltooling/logging.h>
 #include <xmltooling/unicode.h>
 #include <xmltooling/XMLToolingConfig.h>
 #include <xmltooling/util/NDC.h>
-#include <xmltooling/util/StorageService.h>
-#include <xmltooling/util/Threads.h>
 #include <xmltooling/util/XMLHelper.h>
 
 using namespace xmltooling;
@@ -40,225 +33,37 @@ using boost::bad_lexical_cast;
 using namespace Aws::DynamoDB;
 using namespace Aws::DynamoDB::Model;
 
-namespace {
-    static const char* ALLOCATION_TAG = "ShibDynamoDBStore";
-    static const string CONTEXT( "Context" );
-    static const string EXPIRES( "Expires" );
-    static const string KEY( "Key" );
-    static const string VALUE( "Value" );
-    static const string VERSION( "Version" );
+static const char* ALLOCATION_TAG = "ShibDynamoDBStore";
+static const string CONTEXT( "Context" );
+static const string EXPIRES( "Expires" );
+static const string KEY( "Key" );
+static const string VALUE( "Value" );
+static const string VERSION( "Version" );
 
-    static const int DEFAULT_BATCH_SIZE = 5;
-    static const int DEFAULT_CONNECT_TIMEOUT_MS = 1000;
-    static const int DEFAULT_REQUEST_TIMEOUT_MS = 3000;
-    static const int DEFAULT_MAX_CONNECTIONS = 25;
-    static const char* DEFAULT_TABLE_NAME = "shibsp_storage";
-    static const bool DEFAULT_VERIFY_SSL = true;
+static const int DEFAULT_BATCH_SIZE = 5;
+static const int DEFAULT_CONNECT_TIMEOUT_MS = 1000;
+static const int DEFAULT_REQUEST_TIMEOUT_MS = 3000;
+static const int DEFAULT_MAX_CONNECTIONS = 25;
+static const char* DEFAULT_TABLE_NAME = "shibsp_storage";
+static const bool DEFAULT_VERIFY_SSL = true;
 
-    static const unsigned int MAX_CONTEXT_SIZE = 255;
-    static const unsigned int MAX_KEY_SIZE = 255;
-    static const unsigned int MAX_ITEM_SIZE = 400 * 1024;
-
-    StorageService* DynamoDBStorageServiceFactory(const DOMElement* const &, bool);
-
-    class DynamoDBStorageLogger : public Aws::Utils::Logging::LogSystemInterface {
-
-    public:
-        DynamoDBStorageLogger()
-            : m_cat(logging::Category::getInstance("xmltooling.StorageService.DynamoDB.aws_sdk"))
-        {
-            m_priority = m_cat.getChainedPriority();
-        }
-        ~DynamoDBStorageLogger() {}
-
-        Aws::Utils::Logging::LogLevel GetLogLevel() const {
-            return priorityToLogLevel(m_priority);
-        }
-
-        void Log(
-            Aws::Utils::Logging::LogLevel logLevel,
-            const char* tag,
-            const char* formatStr,
-            ...
-        ) {
-            logging::Category& cat = getCategory(tag);
-
-            va_list vl;
-            va_start(vl,formatStr);
-
-            cat.logva(
-                logToPriorityLevel(logLevel),
-                formatStr,
-                vl
-            );
-
-            va_end(vl);
-        }
-
-        void LogStream(
-            Aws::Utils::Logging::LogLevel logLevel,
-            const char* tag,
-            const Aws::OStringStream &messageStream
-        ) {
-            logging::Category& cat = getCategory(tag);
-
-            cat.log(
-                logToPriorityLevel(logLevel),
-                messageStream.str()
-            );
-        }
-
-    private:
-        logging::Category &m_cat;
-        int m_priority;
-
-        logging::Category& getCategory(const string& name = "") {
-            if (name.empty()) {
-                return m_cat;
-            } else {
-                return logging::Category::getInstance("xmltooling.StorageService.DynamoDB.aws_sdk." + name);
-            }
-        }
-
-        int logToPriorityLevel(Aws::Utils::Logging::LogLevel logLevel) const {
-            switch (logLevel) {
-                case Aws::Utils::Logging::LogLevel::Fatal:      return logging::Priority::PriorityLevel::FATAL;
-                case Aws::Utils::Logging::LogLevel::Error:      return logging::Priority::PriorityLevel::ERROR;
-                case Aws::Utils::Logging::LogLevel::Warn:       return logging::Priority::PriorityLevel::WARN;
-                case Aws::Utils::Logging::LogLevel::Info:       return logging::Priority::PriorityLevel::INFO;
-                case Aws::Utils::Logging::LogLevel::Debug:      return logging::Priority::PriorityLevel::DEBUG;
-                case Aws::Utils::Logging::LogLevel::Trace:      return logging::Priority::PriorityLevel::DEBUG;
-                case Aws::Utils::Logging::LogLevel::Off:        return logging::Priority::PriorityLevel::NOTSET;
-            }
-
-            return logging::Priority::PriorityLevel::INFO;
-        }
-
-        Aws::Utils::Logging::LogLevel priorityToLogLevel(int priorityLevel) const {
-            switch (priorityLevel) {
-                case logging::Priority::PriorityLevel::FATAL:   return Aws::Utils::Logging::LogLevel::Fatal;
-                case logging::Priority::PriorityLevel::ALERT:   return Aws::Utils::Logging::LogLevel::Fatal;
-                case logging::Priority::PriorityLevel::CRIT:    return Aws::Utils::Logging::LogLevel::Fatal;
-                case logging::Priority::PriorityLevel::ERROR:   return Aws::Utils::Logging::LogLevel::Error;
-                case logging::Priority::PriorityLevel::WARN:    return Aws::Utils::Logging::LogLevel::Warn;
-                case logging::Priority::PriorityLevel::NOTICE:  return Aws::Utils::Logging::LogLevel::Warn;
-                case logging::Priority::PriorityLevel::INFO:    return Aws::Utils::Logging::LogLevel::Info;
-                case logging::Priority::PriorityLevel::DEBUG:   return Aws::Utils::Logging::LogLevel::Debug;
-                case logging::Priority::PriorityLevel::NOTSET:  return Aws::Utils::Logging::LogLevel::Off;
-            }
-
-            return Aws::Utils::Logging::LogLevel::Info;
-        }
-    };
+static const unsigned int MAX_CONTEXT_SIZE = 255;
+static const unsigned int MAX_KEY_SIZE = 255;
+static const unsigned int MAX_ITEM_SIZE = 400 * 1024;
 
 
-    class DynamoDBStorageService : public StorageService {
+namespace UIUC {
 
-    public:
-        typedef Aws::Map<Aws::String, AttributeValue> Item;
+namespace XMLTooling {
 
-        ~DynamoDBStorageService() {}
-
-        const Capabilities& getCapabilities() const {
-            return m_caps;
-        }
-
-        bool createString(
-                const char* context,
-                const char* key,
-                const char* value,
-                time_t expiration
-         );
-        int readString(
-                const char* context,
-                const char* key,
-                string* pvalue = nullptr,
-                time_t* pexpiration = nullptr,
-                int version = 0
-        );
-        int updateString(
-                const char* context,
-                const char* key,
-                const char* value = nullptr,
-                time_t expiration = 0,
-                int version = 0
-        );
-        bool deleteString(
-                const char* context,
-                const char* key
-        );
-
-
-        bool createText(
-                const char* context,
-                const char* key,
-                const char* value,
-                time_t expiration
-            ) {
-            return createString(context, key, value, expiration);
-        }
-        int readText(
-                const char* context,
-                const char* key,
-                string* pvalue = nullptr,
-                time_t* pexpiration = nullptr,
-                int version = 0
-            ) {
-            return readString(context, key, pvalue, pexpiration, version);
-        }
-        int updateText(
-                const char* context,
-                const char* key,
-                const char* value = nullptr,
-                time_t expiration = 0,
-                int version = 0
-            ) {
-            return updateString(context, key, value, expiration, version);
-        }
-        bool deleteText(
-                const char* context,
-                const char* key
-            ) {
-            return deleteString(context, key);
-        }
-
-        void reap(const char* context) {}
-
-        void updateContext(const char* context, time_t expiration);
-        void deleteContext(const char* context);
-
-        void forEachContextKey(
-            const char* context,
-            function<bool (const AttributeValue&)> callback
-        );
-
-    private:
-        DynamoDBStorageService(const DOMElement* e);
-
-        template <typename T>
-        T getItemN(const char* context, const char* key, const Item &item, const string &itemKey) const;
-        const string getItemS(const char* context, const char* key, const Item &item, const string &itemKey) const;
-
-        void logError(const Aws::Client::AWSError<DynamoDBErrors> &error) const;
-        void logRequest(const DynamoDBRequest &request) const;
-
-        int m_batchSize;
-        Capabilities m_caps;
-        std::shared_ptr<DynamoDBClient> m_client;
-        logging::Category& m_log;
-        string m_tableName;
-
-        friend StorageService* DynamoDBStorageServiceFactory(const DOMElement* const &, bool);
-    };
-
-    StorageService* DynamoDBStorageServiceFactory(const DOMElement* const & e, bool) {
-        return new DynamoDBStorageService(e);
-    }
-};
+StorageService* DynamoDBStorageServiceFactory(const DOMElement* const & e, bool)
+{
+    return new DynamoDBStorageService(e);
+}
 
 
 DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
-    : m_log(logging::Category::getInstance("xmltooling.StorageService.DynamoDB")),
+    : m_log(logging::Category::getInstance("uiuc.xmltooling.DynamoDBStorageService")),
       m_caps(
           MAX_CONTEXT_SIZE,
           MAX_KEY_SIZE,
@@ -878,6 +683,9 @@ void DynamoDBStorageService::logRequest(const DynamoDBRequest &request) const
     m_log.debug("DynamoDB Request: %s", request.SerializePayload().c_str());
 }
 
+} // namespace XMLTooling
+} // namespace UIUC
+
 
 extern "C" int DYNAMODB_EXPORTS xmltooling_extension_init(void*)
 {
@@ -885,12 +693,12 @@ extern "C" int DYNAMODB_EXPORTS xmltooling_extension_init(void*)
 
     options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
     options.loggingOptions.logger_create_fn = []() {
-        return std::shared_ptr<Aws::Utils::Logging::LogSystemInterface>(new DynamoDBStorageLogger());
+        return std::shared_ptr<Aws::Utils::Logging::LogSystemInterface>(new UIUC::AWS_SDK::Utils::Logging::XMLToolingLogSystem());
     };
     Aws::InitAPI(options);
 
     // Register this SS type
-    XMLToolingConfig::getConfig().StorageServiceManager.registerFactory("DYNAMODB", DynamoDBStorageServiceFactory);
+    XMLToolingConfig::getConfig().StorageServiceManager.registerFactory("DYNAMODB", UIUC::XMLTooling::DynamoDBStorageServiceFactory);
     return 0;
 }
 

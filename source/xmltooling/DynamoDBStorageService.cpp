@@ -240,7 +240,7 @@ int DynamoDBStorageService::readString(
     }
 
     const Item &item = outcome.GetResult().GetItem();
-    if (item.size() == 0) {
+    if (item.empty()) {
         if (m_log.isDebugEnabled()) {
             m_log.debug("read string returned no data (table=%s; context=%s; key=%s)",
                 m_tableName.c_str(),
@@ -369,7 +369,7 @@ int DynamoDBStorageService::updateString(
     }
 
     const Item &attrs = outcome.GetResult().GetAttributes();
-    if (attrs.size() == 0) {
+    if (attrs.empty()) {
         if (m_log.isDebugEnabled()) {
             m_log.debug("update string returned no data (table=%s; context=%s; key=%s)",
                 m_tableName.c_str(),
@@ -586,7 +586,7 @@ void DynamoDBStorageService::forEachContextKey(
         }
 
         request.SetExclusiveStartKey(result.GetLastEvaluatedKey());
-    } while (!stopLoop && request.GetExclusiveStartKey().size() != 0);
+    } while (!stopLoop && !request.GetExclusiveStartKey().empty());
 }
 
 

@@ -17,6 +17,7 @@
 #include <aws/dynamodb/model/QueryRequest.h>
 #include <aws/dynamodb/model/UpdateItemRequest.h>
 #include <boost/lexical_cast.hpp>
+#include <thread>
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xmltooling/unicode.h>
 #include <xmltooling/XMLToolingConfig.h>
@@ -40,6 +41,8 @@ static const string KEY( "Key" );
 static const string VALUE( "Value" );
 static const string VERSION( "Version" );
 
+static const int DEFAULT_BATCH_BACKOFF_MAX = 1000;
+static const int DEFAULT_BATCH_BACKOFF_SCALE_FACTOR = 50;
 static const int DEFAULT_BATCH_SIZE = 5;
 static const int DEFAULT_CONNECT_TIMEOUT_MS = 1000;
 static const int DEFAULT_REQUEST_TIMEOUT_MS = 3000;
@@ -73,7 +76,9 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
             - (EXPIRES.length() + 10)
             - (VERSION.length() + 10)
             - VALUE.length()
-      )
+      ),
+      m_batchBackoffMax(DEFAULT_BATCH_BACKOFF_MAX),
+      m_batchBackoffScaleFactor(DEFAULT_BATCH_BACKOFF_SCALE_FACTOR)
 {
     static const XMLCh x_ACCESS_KEY_ID[] = UNICODE_LITERAL_11(a,c,c,e,s,s,K,e,y,I,D);
     static const XMLCh x_BATCH_SIZE[] = UNICODE_LITERAL_9(b,a,t,c,h,S,i,z,e);
@@ -496,6 +501,8 @@ void DynamoDBStorageService::deleteContext(const char* context)
         }
     );
 
+    int backoffLevel = 0;
+
     Aws::Map<Aws::String, Aws::Vector<WriteRequest>> requestItems;
     auto it = writeRequests.cbegin();
     while (it != writeRequests.cend()) {
@@ -521,6 +528,29 @@ void DynamoDBStorageService::deleteContext(const char* context)
 
         const BatchWriteItemResult &result = outcome.GetResult();
         requestItems = result.GetUnprocessedItems();
+
+        // check if we had unprocessed items, and modify the backoff
+        // strategy in response
+        if (requestItems.empty()) {
+            if (backoffLevel > 0) {
+                // successfully processed all the elemnts last round,
+                // so decrease the backoff level
+                --backoffLevel;
+                m_log.warn("no unprocessed items; decreased backoff level to %d", backoffLevel);
+            }
+        } else {
+            auto sleepTime = (1 << backoffLevel) * m_batchBackoffScaleFactor;
+
+            if (sleepTime < m_batchBackoffMax) {
+                // increase the backoff level for the next round
+                backoffLevel++;
+            } else {
+                sleepTime = m_batchBackoffMax;
+            }
+
+            m_log.warnStream() << requestItems[m_tableName].size() << " unprocessed items; sleeping for " << sleepTime.count() << "; backoffLevel = " << backoffLevel;
+            this_thread::sleep_for(sleepTime);
+        }
     }
 }
 

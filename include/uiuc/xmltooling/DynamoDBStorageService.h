@@ -2,6 +2,7 @@
 #include <aws/core/Aws.h>
 #include <aws/dynamodb/DynamoDBClient.h>
 #include <aws/dynamodb/DynamoDBRequest.h>
+#include <chrono>
 #include <ctime>
 #include <functional>
 #include <string>
@@ -106,6 +107,8 @@ private:
     void logError(const Aws::Client::AWSError<Aws::DynamoDB::DynamoDBErrors> &error) const;
     void logRequest(const Aws::DynamoDB::DynamoDBRequest &request) const;
 
+    std::chrono::milliseconds m_batchBackoffMax;
+    std::chrono::milliseconds m_batchBackoffScaleFactor;
     int m_batchSize;
     Capabilities m_caps;
     std::shared_ptr<Aws::DynamoDB::DynamoDBClient> m_client;

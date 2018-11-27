@@ -54,6 +54,8 @@ static const unsigned int MAX_CONTEXT_SIZE = 255;
 static const unsigned int MAX_KEY_SIZE = 255;
 static const unsigned int MAX_ITEM_SIZE = 400 * 1024;
 
+static Aws::SDKOptions sdkOptions;
+
 
 namespace UIUC {
 
@@ -66,7 +68,7 @@ StorageService* DynamoDBStorageServiceFactory(const DOMElement* const & e, bool)
 
 
 DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
-    : m_log(logging::Category::getInstance("uiuc.xmltooling.DynamoDBStorageService")),
+    : m_log(logging::Category::getInstance("UIUC.XMLTooling.DynamoDBStorageService")),
       m_caps(
           MAX_CONTEXT_SIZE,
           MAX_KEY_SIZE,
@@ -718,13 +720,11 @@ void DynamoDBStorageService::logRequest(const DynamoDBRequest &request) const
 
 extern "C" int DYNAMODB_EXPORTS xmltooling_extension_init(void*)
 {
-    Aws::SDKOptions options;
-
-    options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
-    options.loggingOptions.logger_create_fn = []() {
-        return std::shared_ptr<Aws::Utils::Logging::LogSystemInterface>(new UIUC::AWS_SDK::Utils::Logging::XMLToolingLogSystem());
+    sdkOptions.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
+    sdkOptions.loggingOptions.logger_create_fn = []() {
+        return make_shared<UIUC::AWS_SDK::Utils::Logging::XMLToolingLogSystem>();
     };
-    Aws::InitAPI(options);
+    Aws::InitAPI(sdkOptions);
 
     // Register this SS type
     XMLToolingConfig::getConfig().StorageServiceManager.registerFactory("DYNAMODB", UIUC::XMLTooling::DynamoDBStorageServiceFactory);
@@ -735,6 +735,5 @@ extern "C" void DYNAMODB_EXPORTS xmltooling_extension_term()
 {
     XMLToolingConfig::getConfig().StorageServiceManager.deregisterFactory("DYNAMODB");
 
-    Aws::SDKOptions options;
-    Aws::ShutdownAPI(options);
+    Aws::ShutdownAPI(sdkOptions);
 }

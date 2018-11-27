@@ -18,7 +18,7 @@ namespace Utils {
 namespace Logging {
 
 XMLToolingLogSystem::XMLToolingLogSystem()
-    : m_xmlCat(Category::getInstance("uiuc.aws_sdk"))
+    : m_xmlCat(Category::getInstance("UIUC.AWS_SDK"))
 {
     m_xmlLevel = m_xmlCat.getChainedPriority();
 }
@@ -66,7 +66,7 @@ Category& XMLToolingLogSystem::getXMLCategory(const std::string& name)
     if (name.empty()) {
         return m_xmlCat;
     } else {
-        return Category::getInstance("uiuc.aws_sdk." + name);
+        return Category::getInstance("UIUC.AWS_SDK." + name);
     }
 }
 

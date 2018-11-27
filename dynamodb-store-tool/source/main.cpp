@@ -1,13 +1,14 @@
-#include <fstream>
-
+#include <aws/core/Aws.h>
+#include <aws/core/utils/json/JsonSerializer.h>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
-
+#include <fstream>
 #include <xmltooling/XMLToolingConfig.h>
 #include <xmltooling/util/ParserPool.h>
 #include <xmltooling/util/StorageService.h>
 #include <xmltooling/util/XMLHelper.h>
 
+using namespace Aws::Utils::Json;
 using namespace xmltooling;
 using namespace xercesc;
 using namespace boost;
@@ -71,78 +72,6 @@ private:
     string m_key;
 };
 
-class value_not_created_error : public base_value_error {
-
-public:
-    explicit value_not_created_error(
-        const string& context_arg,
-        const string& key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not created (context=%1%; key=%2%)")
-    {}
-
-    explicit value_not_created_error(
-        const char* context_arg,
-        const char* key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not created (context=%1%; key=%2%)")
-    {}
-};
-
-class value_not_deleted_error : public base_value_error {
-
-public:
-    explicit value_not_deleted_error(
-        const string& context_arg,
-        const string& key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not created (context=%1%; key=%2%)")
-    {}
-
-    explicit value_not_deleted_error(
-        const char* context_arg,
-        const char* key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not created (context=%1%; key=%2%)")
-    {}
-};
-
-class value_not_found_error : public base_value_error {
-
-public:
-    explicit value_not_found_error(
-        const string& context_arg,
-        const string& key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not found (context=%1%; key=%2%)")
-    {}
-
-    explicit value_not_found_error(
-        const char* context_arg,
-        const char* key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not found (context=%1%; key=%2%)")
-    {}
-};
-
-class value_not_updated_error : public base_value_error {
-
-public:
-    explicit value_not_updated_error(
-        const string& context_arg,
-        const string& key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not updated (context=%1%; key=%2%)")
-    {}
-
-    explicit value_not_updated_error(
-        const char* context_arg,
-        const char* key_arg
-    )
-        : base_value_error(context_arg, key_arg, "value not updated (context=%1%; key=%2%)")
-    {}
-};
-
 class options_error : public runtime_error {
 
 public:
@@ -171,7 +100,7 @@ void outputHelp(const string& subcommandUsage, const po::options_description& su
 }
 
 
-void handleCreate(std::shared_ptr<StorageService> store)
+JsonValue handleCreate(std::shared_ptr<StorageService> store)
 {
     string opt_context;
     string opt_key;
@@ -222,11 +151,12 @@ void handleCreate(std::shared_ptr<StorageService> store)
             opt_expiration
         );
 
-    if (!success)
-        throw value_not_created_error(opt_context, opt_key);
+    return JsonValue()
+        .WithString("context", opt_context).WithString("key", opt_key)
+        .WithBool("result", success);
 }
 
-void handleDelete(std::shared_ptr<StorageService> store)
+JsonValue handleDelete(std::shared_ptr<StorageService> store)
 {
     string opt_context;
     string opt_key;
@@ -267,11 +197,13 @@ void handleDelete(std::shared_ptr<StorageService> store)
             opt_key.c_str()
         );
 
-    if (!success)
-        throw value_not_deleted_error(opt_context, opt_key);
+    return JsonValue()
+        .WithString("context", opt_context)
+        .WithString("key", opt_key)
+        .WithBool("result", success);
 }
 
-void handleDeleteContext(std::shared_ptr<StorageService> store)
+JsonValue handleDeleteContext(std::shared_ptr<StorageService> store)
 {
     string opt_context;
 
@@ -300,9 +232,13 @@ void handleDeleteContext(std::shared_ptr<StorageService> store)
     store->deleteContext(
         opt_context.c_str()
     );
+
+    return JsonValue()
+        .WithString("context", opt_context)
+        .WithBool("result", true);
 }
 
-void handleRead(std::shared_ptr<StorageService> store)
+JsonValue handleRead(std::shared_ptr<StorageService> store)
 {
     string opt_context;
     string opt_key;
@@ -358,18 +294,33 @@ void handleRead(std::shared_ptr<StorageService> store)
             opt_version
         );
 
-    if (version == 0)
-        throw value_not_found_error(opt_context, opt_key);
+    JsonValue rv;
 
-    cout << "Version: " << version << endl;
+    rv.WithString("context", opt_context).WithString("key", opt_key);
+
+    if (version == 0)
+        return rv.WithBool("result", false);
+
+    rv.WithInteger("version", version);
     if (!opt_skip_value) {
-        cout << "Value: " << (opt_version && opt_version == version ? "(not changed)" : value) << endl;
+        if (opt_version) {
+            if (opt_version == version) {
+                rv.WithBool("version_changed", false);
+            } else {
+                rv.WithString("value", value);
+                rv.WithBool("version_changed", true);
+            }
+        } else {
+            rv.WithString("value", value);
+        }
     }
     if (!opt_skip_expiration)
-        cout << "Expiration: " << expiration << endl;
+        rv.WithInteger("expiration", expiration);
+
+    return rv.WithBool("result", true);
 }
 
-void handleUpdate(std::shared_ptr<StorageService> store)
+JsonValue handleUpdate(std::shared_ptr<StorageService> store)
 {
     string opt_context;
     string opt_key;
@@ -423,15 +374,15 @@ void handleUpdate(std::shared_ptr<StorageService> store)
             opt_version
         );
 
-    if (version == 0)
-        throw value_not_found_error(opt_context, opt_key);
-    else if (version == -1)
-        throw value_not_updated_error(opt_context, opt_key);
+    JsonValue rv;
 
-    cout << "Version: " << version << endl;
+    rv.WithString("context", opt_context).WithString("key", opt_key);
+    rv.WithInteger("version", version);
+    rv.WithBool("result", (version > 0));
+    return rv;
 }
 
-void handleUpdateContext(std::shared_ptr<StorageService> store)
+JsonValue handleUpdateContext(std::shared_ptr<StorageService> store)
 {
     string opt_context;
     time_t opt_expiration = 0;
@@ -464,6 +415,8 @@ void handleUpdateContext(std::shared_ptr<StorageService> store)
         opt_context.c_str(),
         opt_expiration
     );
+
+    return JsonValue().WithString("context", opt_context).WithBool("result", true);
 }
 
 
@@ -482,6 +435,9 @@ std::shared_ptr<StorageService> newStorageService(const string &configFileName, 
 
 int main(int argc, char* argv[])
 {
+    Aws::SDKOptions options;
+    Aws::InitAPI(options);
+
     if (argc > 0)
         opt_arg0 = argv[ 0 ];
 
@@ -540,22 +496,25 @@ int main(int argc, char* argv[])
 
     try {
         std::shared_ptr<StorageService> store = newStorageService(opt_config, opt_plugin);
+        JsonValue rv;
 
         if (opt_command == "readString" || opt_command == "readText") {
-            handleRead(store);
+            rv = handleRead(store);
         } else if (opt_command == "createString" || opt_command == "createText") {
-            handleCreate(store);
+            rv = handleCreate(store);
         } else if (opt_command == "deleteString" || opt_command == "deleteText") {
-            handleDelete(store);
+            rv = handleDelete(store);
         } else if (opt_command == "updateString" || opt_command == "updateText") {
-            handleUpdate(store);
+            rv = handleUpdate(store);
         } else if (opt_command == "updateContext") {
-            handleUpdateContext(store);
+            rv = handleUpdateContext(store);
         } else if (opt_command == "deleteContext") {
-            handleDeleteContext(store);
+            rv = handleDeleteContext(store);
         } else {
             throw runtime_error("unknown command: " + opt_command);
         }
+
+        cout << rv.View().WriteReadable() << endl;
     } catch (const options_error &optsEx) {
         if (!optsEx.isHelpDisplayed()) {
             cerr << "Exception: " << optsEx.what() << endl << endl;
@@ -565,5 +524,6 @@ int main(int argc, char* argv[])
         return 1;
     } catch (const std::exception &ex) {
         cerr << "Exception: " << ex.what() << endl;
+        return 1;
     }
 }

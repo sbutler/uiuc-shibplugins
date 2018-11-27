@@ -5,13 +5,16 @@ target_compile_definitions(${PROJECT_NAME}-tool PUBLIC
     -DDYNAMODB_LIB_NAME="$<TARGET_FILE_NAME:${PROJECT_NAME}>"
 )
 target_include_directories(${PROJECT_NAME}-tool PUBLIC
+    ${AWS_SDK_CPP_INCLUDE_DIR}
     ${Boost_INCLUDE_DIR}
     ${XercesC_INCLUDE_DIR}
     ${XMLTOOLING_INCLUDE_DIRS}
     ${LOG4SHIB_INCLUDE_DIRS}
 )
 target_link_libraries(${PROJECT_NAME}-tool PUBLIC
+    ${AWS_SDK_CPP_STATICLIBRARY_core}
     ${Boost_LIBRARIES}
+    ${CURL_LIBRARIES}
     ${XercesC_LIBRARY}
     ${XMLTOOLING_LIBRARIES_ABS}
     ${LOG4SHIB_LIBRARIES_ABS}

@@ -102,7 +102,6 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
     m_tableName = XMLHelper::getAttrString(eRoot, DEFAULT_TABLE_NAME, x_TABLE_NAME);
     m_batchSize = XMLHelper::getAttrInt(eRoot, DEFAULT_BATCH_SIZE, x_BATCH_SIZE);
 
-    Aws::Client::ClientConfiguration clientConfig;
     {
         const string endpoint = XMLHelper::getAttrString(eRoot, "", x_ENDPOINT);
         const string region = XMLHelper::getAttrString(eRoot, "", x_REGION);
@@ -110,16 +109,16 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
         if (endpoint.empty() && region.empty()) {
             throw XMLToolingException("DynamoDB Storage requires either endpoint or region in configuration.");
         }
-        clientConfig.endpointOverride = endpoint;
-        clientConfig.region = region;
-        clientConfig.maxConnections = XMLHelper::getAttrInt(eRoot, DEFAULT_MAX_CONNECTIONS, x_MAX_CONNECTIONS);
+        m_clientConfig.endpointOverride = endpoint;
+        m_clientConfig.region = region;
+        m_clientConfig.maxConnections = XMLHelper::getAttrInt(eRoot, DEFAULT_MAX_CONNECTIONS, x_MAX_CONNECTIONS);
 
-        clientConfig.connectTimeoutMs = XMLHelper::getAttrInt(eRoot, DEFAULT_CONNECT_TIMEOUT_MS, x_CONNECT_TIMEOUT_MS);
-        clientConfig.requestTimeoutMs = XMLHelper::getAttrInt(eRoot, DEFAULT_REQUEST_TIMEOUT_MS, x_REQUEST_TIMEOUT_MS);
+        m_clientConfig.connectTimeoutMs = XMLHelper::getAttrInt(eRoot, DEFAULT_CONNECT_TIMEOUT_MS, x_CONNECT_TIMEOUT_MS);
+        m_clientConfig.requestTimeoutMs = XMLHelper::getAttrInt(eRoot, DEFAULT_REQUEST_TIMEOUT_MS, x_REQUEST_TIMEOUT_MS);
 
-        clientConfig.verifySSL = XMLHelper::getAttrBool(eRoot, DEFAULT_VERIFY_SSL, x_VERIFY_SSL);
-        clientConfig.caFile = XMLHelper::getAttrString(eRoot, "", x_CA_FILE);
-        clientConfig.caPath = XMLHelper::getAttrString(eRoot, "", x_CA_PATH);
+        m_clientConfig.verifySSL = XMLHelper::getAttrBool(eRoot, DEFAULT_VERIFY_SSL, x_VERIFY_SSL);
+        m_clientConfig.caFile = XMLHelper::getAttrString(eRoot, "", x_CA_FILE);
+        m_clientConfig.caPath = XMLHelper::getAttrString(eRoot, "", x_CA_PATH);
     }
 
     const DOMElement* eCreds = XMLHelper::getFirstChildElement(eRoot, x_CREDENTIALS);
@@ -135,10 +134,10 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
 
         m_client = Aws::MakeShared<DynamoDBClient>(ALLOCATION_TAG,
             Aws::Auth::AWSCredentials(accessKeyID, secretKey, sessionToken),
-            clientConfig
+            m_clientConfig
         );
     } else {
-        m_client = Aws::MakeShared<DynamoDBClient>(ALLOCATION_TAG, clientConfig);
+        m_client = Aws::MakeShared<DynamoDBClient>(ALLOCATION_TAG, m_clientConfig);
     }
 }
 

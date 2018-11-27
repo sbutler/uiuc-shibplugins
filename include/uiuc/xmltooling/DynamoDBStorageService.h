@@ -97,6 +97,8 @@ public:
         std::function<bool (const Aws::DynamoDB::Model::AttributeValue&)> callback
     );
 
+    Aws::Client::ClientConfiguration getDynamoDBClientConfiguration() const { return m_clientConfig; }
+
 private:
     DynamoDBStorageService(const xercesc::DOMElement* e);
 
@@ -112,6 +114,7 @@ private:
     int m_batchSize;
     Capabilities m_caps;
     std::shared_ptr<Aws::DynamoDB::DynamoDBClient> m_client;
+    Aws::Client::ClientConfiguration m_clientConfig;
     xmltooling::logging::Category& m_log;
     std::string m_tableName;
 

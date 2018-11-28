@@ -38,8 +38,6 @@ class ToolTestCase(TestCase):
 
 
     def tearDown(self):
-        warnings.filterwarnings("ignore", category=ResourceWarning, message="unclosed.*<ssl.SSLSocket.*>")
-
         b_items = list(getattr(self, 'TEARDOWN_BATCH_WRITES', []))
         r_items = []
         while b_items or r_items:

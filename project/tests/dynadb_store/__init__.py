@@ -36,6 +36,18 @@ class ToolTestCase(TestCase):
         self.tool_cfg.write(f"<Storage tableName='{self.TOOL_TABLE}' region='{self.TOOL_REGION}'/>\n")
         self.tool_cfg.flush()
 
+        b_items = list(getattr(self, 'SETUP_BATCH_WRITES', []))
+        r_items = []
+        while b_items or r_items:
+            while b_items and len(r_items) < 25:
+                r_items.append(b_items.pop())
+
+            result = self.dyndb_clnt.batch_write_item(RequestItems={self.TOOL_TABLE: r_items})
+
+            r_items = result.get('UnprocessedItems', {}).get(self.TOOL_TABLE, [])
+            if r_items:
+                time.sleep(1)
+
 
     def tearDown(self):
         b_items = list(getattr(self, 'TEARDOWN_BATCH_WRITES', []))

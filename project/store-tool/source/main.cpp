@@ -445,7 +445,7 @@ int main(int argc, char* argv[])
         ("help,h", "show this help message")
         ("debug,d", po::bool_switch(&opt_debug), "turn on debug logging")
         ("library,l", po::value<string>(&opt_library)->default_value(DYNAMODB_LIB_NAME), "choose the name of the storage library to load")
-        ("plugin,p", po::value<string>(&opt_plugin)->default_value("DYNAMODB"), "name the plugin registers with XMLTooling")
+        ("plugin,p", po::value<string>(&opt_plugin)->default_value("UIUC-DYNAMODB"), "name the plugin registers with XMLTooling")
         ("config,c", po::value<string>(&opt_config)->required(), "filename to load for the storage service configuration")
     ;
 

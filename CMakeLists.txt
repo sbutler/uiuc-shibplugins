@@ -16,7 +16,7 @@ ExternalProject_Add(AWS_SDK_CPP
         -DENABLE_UNITY_BUILD:BOOL=ON
         -DBUILD_SHARED_LIBS:BOOL=OFF
         -DSIMPLE_INSTALL:BOOL=ON
-        -DBUILD_ONLY:STRING=dynamodb
+        -DBUILD_ONLY:STRING=dynamodb;secretsmanager
     BUILD_IN_SOURCE 0
 
     TEST_COMMAND ""

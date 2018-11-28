@@ -60,10 +60,10 @@ class ToolTestCase(TestCase):
             '-l', self.TOOL_LIB,
             '-c', self.tool_cfg.name,
             command,
-            *args,
+            *[str(i) for i in args],
         ]
         for k, v in kwargs.items():
-            tool_cmd.extend([f'--{k}', v])
+            tool_cmd.extend([f'--{k}', str(v)])
 
         result = subprocess.run(
             tool_cmd,

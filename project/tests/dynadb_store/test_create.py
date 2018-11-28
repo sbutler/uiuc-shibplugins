@@ -26,7 +26,7 @@ class CreateTestCase(ToolTestCase):
             'testContext',
             'testKey',
             'this is a test value',
-            str(expires)
+            expires
         )
         self.assertTrue(result['result'])
 
@@ -63,7 +63,7 @@ class CreateTestCase(ToolTestCase):
             'testContext',
             'testKey',
             'this is a test value',
-            str(expires)
+            expires
         )
         self.assertTrue(result['result'])
 
@@ -99,7 +99,7 @@ class CreateTestCase(ToolTestCase):
             'testContext',
             'testKey',
             'this is a test value',
-            str(expires)
+            expires
         )
         self.assertFalse(result['result'])
 
@@ -108,7 +108,7 @@ class CreateTestCase(ToolTestCase):
             'testContext2',
             'testKey',
             '2this is a test value',
-            str(expires)
+            expires
         )
         self.assertTrue(result['result'])
 
@@ -117,7 +117,7 @@ class CreateTestCase(ToolTestCase):
             'testContext',
             'testKey2',
             'this is a test value2',
-            str(expires)
+            expires
         )
         self.assertTrue(result['result'])
 

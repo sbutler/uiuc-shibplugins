@@ -8,6 +8,14 @@ class CreateTestCase(ToolTestCase):
             'Context': {'S': 'testContext'},
             'Key': {'S': 'testKey'},
         }}},
+        {'DeleteRequest': {'Key': {
+            'Context': {'S': 'testContext'},
+            'Key': {'S': 'testKey2'},
+        }}},
+        {'DeleteRequest': {'Key': {
+            'Context': {'S': 'testContext2'},
+            'Key': {'S': 'testKey'},
+        }}},
     ]
 
     def test_createString(self):
@@ -95,6 +103,24 @@ class CreateTestCase(ToolTestCase):
         )
         self.assertFalse(result['result'])
 
+        result = self.tool(
+            'createString',
+            'testContext2',
+            'testKey',
+            '2this is a test value',
+            str(expires)
+        )
+        self.assertTrue(result['result'])
+
+        result = self.tool(
+            'createString',
+            'testContext',
+            'testKey2',
+            'this is a test value2',
+            str(expires)
+        )
+        self.assertTrue(result['result'])
+
         result = self.dyndb_clnt.get_item(
             TableName=self.TOOL_TABLE,
             Key={'Context': {'S': 'testContext'}, 'Key': {'S': 'testKey'}},
@@ -105,5 +131,31 @@ class CreateTestCase(ToolTestCase):
             'Key': {'S': 'testKey'},
             'Expires': {'N': str(expires)},
             'Value': {'S': 'this is an existing value'},
+            'Version': {'N': '1'},
+        })
+
+        result = self.dyndb_clnt.get_item(
+            TableName=self.TOOL_TABLE,
+            Key={'Context': {'S': 'testContext'}, 'Key': {'S': 'testKey2'}},
+            ConsistentRead=True
+        )
+        self.assertEqual(result.get('Item', {}), {
+            'Context': {'S': 'testContext'},
+            'Key': {'S': 'testKey2'},
+            'Expires': {'N': str(expires)},
+            'Value': {'S': 'this is a test value2'},
+            'Version': {'N': '1'},
+        })
+
+        result = self.dyndb_clnt.get_item(
+            TableName=self.TOOL_TABLE,
+            Key={'Context': {'S': 'testContext2'}, 'Key': {'S': 'testKey'}},
+            ConsistentRead=True
+        )
+        self.assertEqual(result.get('Item', {}), {
+            'Context': {'S': 'testContext2'},
+            'Key': {'S': 'testKey'},
+            'Expires': {'N': str(expires)},
+            'Value': {'S': '2this is a test value'},
             'Version': {'N': '1'},
         })

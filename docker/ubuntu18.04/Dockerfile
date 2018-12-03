@@ -10,7 +10,10 @@ RUN apt-get -y install \
     git \
     gnupg \
     libboost-all-dev \
-    libcurl4-openssl-dev
+    libcurl4-openssl-dev \
+    libssl-dev \
+    uuid-dev \
+    zlib1g-dev
 
 COPY SWITCHaai-swdistrib.asc /root
 COPY SWITCHaai-swdistrib.list /etc/apt/sources.list.d

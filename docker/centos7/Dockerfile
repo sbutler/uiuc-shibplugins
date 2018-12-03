@@ -8,7 +8,9 @@ RUN set -xe \
     && yum -y groupinstall development \
     && yum -y install \
         cmake3 \
-        libcurl-devel
+        libcurl-devel \
+        openssl-devel \
+        libuuid-devel
 
 COPY shibboleth.gpg /tmp/shibboleth.gpg
 COPY shibboleth.repo /etc/yum.repos.d/

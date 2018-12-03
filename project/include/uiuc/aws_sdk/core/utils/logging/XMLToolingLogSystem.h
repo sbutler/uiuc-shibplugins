@@ -1,5 +1,5 @@
 #pragma once
-
+#include <aws/core/Aws.h>
 #include <aws/core/utils/logging/LogLevel.h>
 #include <aws/core/utils/logging/LogSystemInterface.h>
 #include <string>

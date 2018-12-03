@@ -23,5 +23,8 @@ RUN set -xe \
 COPY build.sh /bin/
 RUN chmod a+rx /bin/build.sh
 
+ENV UIUC_SHIBPLUGINS_GITURL="https://github.com/sbutler/uiuc-shibplugins.git" \
+    UIUC_SHIBPLUGINS_GITBRANCH="master"
+
 WORKDIR /build
 CMD ["/bin/build.sh"]

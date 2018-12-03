@@ -9,6 +9,7 @@
 
 #include <xmltooling/XMLToolingConfig.h>
 
+using namespace UIUC::AWS_SDK::Utils::Logging;
 using namespace xmltooling;
 using namespace std;
 
@@ -17,9 +18,11 @@ static Aws::SDKOptions sdkOptions;
 
 extern "C" int UIUC_SHIBPLUGINS_EXPORTS xmltooling_extension_init(void*)
 {
-    sdkOptions.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
+    shared_ptr<XMLToolingLogSystem> tmpLogger = make_shared<XMLToolingLogSystem>();
+
+    sdkOptions.loggingOptions.logLevel = tmpLogger->GetLogLevel();
     sdkOptions.loggingOptions.logger_create_fn = []() {
-        return make_shared<UIUC::AWS_SDK::Utils::Logging::XMLToolingLogSystem>();
+        return make_shared<XMLToolingLogSystem>();
     };
     Aws::InitAPI(sdkOptions);
 

@@ -24,13 +24,13 @@ extern "C" int UIUC_SHIBPLUGINS_EXPORTS xmltooling_extension_init(void*)
     Aws::InitAPI(sdkOptions);
 
     // Register this SS type
-    XMLToolingConfig::getConfig().StorageServiceManager.registerFactory("UIUC-DYNAMODB", UIUC::XMLTooling::DynamoDBStorageServiceFactory);
+    XMLToolingConfig::getConfig().StorageServiceManager.registerFactory("UIUC-DynamoDB", UIUC::XMLTooling::DynamoDBStorageServiceFactory);
     return 0;
 }
 
 extern "C" void UIUC_SHIBPLUGINS_EXPORTS xmltooling_extension_term()
 {
-    XMLToolingConfig::getConfig().StorageServiceManager.deregisterFactory("UIUC-DYNAMODB");
+    XMLToolingConfig::getConfig().StorageServiceManager.deregisterFactory("UIUC-DynamoDB");
 
     Aws::ShutdownAPI(sdkOptions);
 }

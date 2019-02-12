@@ -30,20 +30,21 @@ The table needs to be configured as follows:
 To load this plugin create a `StorageService` element and configure it
 with these attributes.
 
-| Name              | Type    | Required? | Default | Description |
-| ----------------- | ------- | --------- | ------- | ----------- |
-| type              | String  | Y         |         | Specify "UIUC-DynamoDB" to use the plugin. |
-| id                | XML ID  | N         |         | A unique identifier within the configuration file that labels the plugin instance so other plugins can reference it. |
-| tableName         | String  | N         | shibsp_storage | Name of the DynamoDB table to use. This table must already exist and be configured as specified above. |
-| batchSize         | Integer | N         | 5       | When performing batch operations, how many requests to perform at once. |
-| region            | String  | Y         |         | The AWS region identifier (us-east-1, us-east-2, etc) for the DynamoDB table. Either this attribute or endpoint must be specified. |
-| endpoint          | String  | Y         |         | The endpoint URL for the DynamoDB service. Either this attribute or region must be specified. |
-| maxConnections    | Integer | N         | 25      | Maximum number of simultaneous connections that the client will make to DynamoDB. |
-| connectTimeoutMS  | Integer | N         | 1000    | Timeout value in milliseconds to wait for a successful connection to DynamoDB. |
-| requestTimeoutMS  | Integer | N         | 3000    | Timeout value in milliseconds to wait for a response when performing DynamoDB requests. |
-| verifySSL         | Boolean | N         | true    | Verify the SSL certificate when connecting to DynamoDB. |
-| caFile            | String  | N         |         | Path to a file of CA certificates to use for verifying the SSL connection. |
-| caPath            | String  | N         |         | Path to a directory of hashed CA certificates to use for verifying the SSL connection. |
+| Name                  | Type    | Required? | Default | Description |
+| --------------------- | ------- | --------- | ------- | ----------- |
+| type                  | String  | Y         |         | Specify "UIUC-DynamoDB" to use the plugin. |
+| id                    | XML ID  | N         |         | A unique identifier within the configuration file that labels the plugin instance so other plugins can reference it. |
+| tableName             | String  | N         | shibsp_storage | Name of the DynamoDB table to use. This table must already exist and be configured as specified above. |
+| batchSize             | Integer | N         | 5       | When performing batch operations, how many requests to perform at once. |
+| updateContextWindow   | Integer | N         | 600     | When ShibSP updates a context's expiration time, require it be at least this many seconds different from the last call. This keeps ShibSP from making unnecessary trips to DynamoDB, at the expense of sessions possible expiring a couple minutes earlier than expected. |
+| region                | String  | Y         |         | The AWS region identifier (us-east-1, us-east-2, etc) for the DynamoDB table. Either this attribute or endpoint must be specified. |
+| endpoint              | String  | Y         |         | The endpoint URL for the DynamoDB service. Either this attribute or region must be specified. |
+| maxConnections        | Integer | N         | 25      | Maximum number of simultaneous connections that the client will make to DynamoDB. |
+| connectTimeoutMS      | Integer | N         | 1000    | Timeout value in milliseconds to wait for a successful connection to DynamoDB. |
+| requestTimeoutMS      | Integer | N         | 3000    | Timeout value in milliseconds to wait for a response when performing DynamoDB requests. |
+| verifySSL             | Boolean | N         | true    | Verify the SSL certificate when connecting to DynamoDB. |
+| caFile                | String  | N         |         | Path to a file of CA certificates to use for verifying the SSL connection. |
+| caPath                | String  | N         |         | Path to a directory of hashed CA certificates to use for verifying the SSL connection. |
 
 AWS credentials are searched for in the standard fashion, using
 environment variables and standard configuration locations. The client

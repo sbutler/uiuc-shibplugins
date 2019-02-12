@@ -45,6 +45,7 @@
 #include <aws/dynamodb/model/QueryRequest.h>
 #include <aws/dynamodb/model/UpdateItemRequest.h>
 #include <boost/lexical_cast.hpp>
+#include <cmath>
 #include <thread>
 #include <xercesc/util/XMLUniDefs.hpp>
 #include <xmltooling/unicode.h>
@@ -76,6 +77,7 @@ static const int DEFAULT_CONNECT_TIMEOUT_MS = 1000;
 static const int DEFAULT_REQUEST_TIMEOUT_MS = 3000;
 static const int DEFAULT_MAX_CONNECTIONS = 25;
 static const char* DEFAULT_TABLE_NAME = "shibsp_storage";
+static const int DEFAULT_UPDATE_CONTEXT_WINDOW = 10*60;
 static const bool DEFAULT_VERIFY_SSL = true;
 
 static const unsigned int MAX_CONTEXT_SIZE = 255;
@@ -121,6 +123,7 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
     static const XMLCh x_SECRET_KEY[] = UNICODE_LITERAL_9(s,e,c,r,e,t,K,e,y);
     static const XMLCh x_SESSION_TOKEN[] = UNICODE_LITERAL_12(s,e,s,s,i,o,n,T,o,k,e,n);
     static const XMLCh x_TABLE_NAME[] = UNICODE_LITERAL_9(t,a,b,l,e,N,a,m,e);
+    static const XMLCh x_UPDATE_CONTEXT_WINDOW[] = UNICODE_LITERAL_19(u,p,d,a,t,e,C,o,n,t,e,x,t,W,i,n,d,o,w);
     static const XMLCh x_VERIFY_SSL[] = UNICODE_LITERAL_9(v,e,r,i,f,y,S,S,L);
 
     #ifdef _DEBUG
@@ -129,6 +132,7 @@ DynamoDBStorageService::DynamoDBStorageService(const DOMElement* eRoot)
 
     m_tableName = XMLHelper::getAttrString(eRoot, DEFAULT_TABLE_NAME, x_TABLE_NAME);
     m_batchSize = XMLHelper::getAttrInt(eRoot, DEFAULT_BATCH_SIZE, x_BATCH_SIZE);
+    m_updateContextWindow = XMLHelper::getAttrInt(eRoot, DEFAULT_UPDATE_CONTEXT_WINDOW, x_UPDATE_CONTEXT_WINDOW);
 
     {
         const string endpoint = XMLHelper::getAttrString(eRoot, "", x_ENDPOINT);
@@ -464,6 +468,20 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
     NDC ndc("updateContext")
     #endif
 
+    {
+        lock_guard<mutex> lock(m_updateContextExpirationsMutex);
+        unordered_map<string, time_t>::iterator lastExp = m_updateContextExpirations.find(context);
+        if (lastExp != m_updateContextExpirations.end() && (abs(expiration - lastExp->second) < m_updateContextWindow))
+        {
+            m_log.debug("updateContext not within window (context=%s; expiration=%d; last=%d)",
+                context,
+                expiration,
+                lastExp->second
+            );
+            return;
+        }
+    }
+
     forEachContextKey(
         context,
         [=](const AttributeValue& key) -> bool {
@@ -507,6 +525,11 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
             return false;
         }
     );
+
+    {
+        lock_guard<mutex> lock(m_updateContextExpirationsMutex);
+        m_updateContextExpirations[context] = expiration;
+    }
 }
 
 
@@ -578,6 +601,11 @@ void DynamoDBStorageService::deleteContext(const char* context)
             m_log.warnStream() << requestItems[m_tableName].size() << " unprocessed items; sleeping for " << sleepTime.count() << "; backoffLevel = " << backoffLevel;
             this_thread::sleep_for(sleepTime);
         }
+    }
+
+    {
+        lock_guard<mutex> lock(m_updateContextExpirationsMutex);
+        m_updateContextExpirations.erase(context);
     }
 }
 

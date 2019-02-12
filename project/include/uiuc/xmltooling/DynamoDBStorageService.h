@@ -40,7 +40,9 @@
 #include <chrono>
 #include <ctime>
 #include <functional>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <xercesc/dom/DOMElement.hpp>
 #include <xmltooling/base.h>
 #include <xmltooling/logging.h>
@@ -152,6 +154,9 @@ private:
     Aws::Client::ClientConfiguration m_clientConfig;
     xmltooling::logging::Category& m_log;
     std::string m_tableName;
+    int m_updateContextWindow;
+    std::unordered_map<std::string, time_t> m_updateContextExpirations;
+    std::mutex m_updateContextExpirationsMutex;
 
     friend xmltooling::StorageService* DynamoDBStorageServiceFactory(const xercesc::DOMElement* const &, bool);
 };

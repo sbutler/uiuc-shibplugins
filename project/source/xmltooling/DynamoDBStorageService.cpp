@@ -471,7 +471,11 @@ void DynamoDBStorageService::updateContext(const char* context, time_t expiratio
     {
         lock_guard<mutex> lock(m_updateContextExpirationsMutex);
         unordered_map<string, time_t>::iterator lastExp = m_updateContextExpirations.find(context);
-        if (lastExp != m_updateContextExpirations.end() && (abs(expiration - lastExp->second) < m_updateContextWindow))
+        if (
+                lastExp != m_updateContextExpirations.end()
+                && (abs(expiration - lastExp->second) < m_updateContextWindow)
+                && (expiration > (time(nullptr) + m_updateContextWindow*2))
+            )
         {
             m_log.debug("updateContext not within window (context=%s; expiration=%d; last=%d)",
                 context,

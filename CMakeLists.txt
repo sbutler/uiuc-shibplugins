@@ -9,7 +9,7 @@ ExternalProject_Add(AWS_SDK_CPP
     INSTALL_DIR vendor
 
     GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
-    GIT_TAG 1.7.2
+    GIT_TAG 1.7.79
 
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/vendor
     CMAKE_CACHE_ARGS
@@ -17,6 +17,8 @@ ExternalProject_Add(AWS_SDK_CPP
         -DBUILD_SHARED_LIBS:BOOL=OFF
         -DSIMPLE_INSTALL:BOOL=ON
         -DBUILD_ONLY:STRING=dynamodb;secretsmanager
+        -DENABLE_TESTING:BOOL=OFF
+        -DAUTORUN_UNIT_TESTS:BOOL=OFF
     BUILD_IN_SOURCE 0
 
     TEST_COMMAND ""

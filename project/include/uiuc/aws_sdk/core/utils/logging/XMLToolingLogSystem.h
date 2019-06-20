@@ -71,6 +71,8 @@ public:
         const Aws::OStringStream &messageStream
     );
 
+    void Flush() {}
+
 private:
     xmltooling::logging::Category &m_xmlCat;
     int m_xmlLevel;

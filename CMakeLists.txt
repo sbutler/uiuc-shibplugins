@@ -9,7 +9,7 @@ ExternalProject_Add(AWS_SDK_CPP
     INSTALL_DIR vendor
 
     GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
-    GIT_TAG 1.7.127
+    GIT_TAG 1.7.327
 
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/vendor
     CMAKE_CACHE_ARGS
